@@ -198,6 +198,23 @@ const BroadcastTab = () => {
   const [form, setForm] = useState({ title: '', message: '' });
   const [sending, setSending] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [broadcasts, setBroadcasts] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  const fetchBroadcasts = async () => {
+    try {
+      const { data } = await api.get('/notifications/broadcasts');
+      setBroadcasts(data || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBroadcasts();
+  }, []);
 
   const handleSend = async () => {
     if (!form.title || !form.message) return alert('Please fill title and message');
@@ -206,11 +223,22 @@ const BroadcastTab = () => {
       await api.post('/admin/broadcast', form);
       setSuccess(true);
       setForm({ title: '', message: '' });
+      await fetchBroadcasts();
       setTimeout(() => setSuccess(false), 4000);
     } catch (e) {
       alert(e.response?.data?.message || 'Failed to send broadcast');
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleDeleteBroadcast = async (id) => {
+    if (!window.confirm('Delete this broadcast?')) return;
+    try {
+      await api.delete(`/notifications/${id}`);
+      setBroadcasts(prev => prev.filter(item => item._id !== id));
+    } catch (e) {
+      alert(e.response?.data?.message || 'Failed to delete broadcast');
     }
   };
 
@@ -252,6 +280,37 @@ const BroadcastTab = () => {
         >
           {sending ? 'Sending...' : '📢 Send Notification to All Users'}
         </button>
+      </div>
+      <div className="mt-8">
+        <h3 className="text-lg font-bold text-navy dark:text-white mb-3">Broadcast History</h3>
+        {loadingHistory ? (
+          <div className="text-sm text-gray-400">Loading broadcasts...</div>
+        ) : broadcasts.length === 0 ? (
+          <div className="text-sm text-gray-400">No broadcasts yet.</div>
+        ) : (
+          <div className="space-y-3">
+            {broadcasts.map(item => (
+              <div
+                key={item._id}
+                className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-navy"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-navy dark:text-white">{item.title}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 break-words">{item.body}</p>
+                    <p className="text-xs text-gray-400 mt-2">{new Date(item.createdAt).toLocaleString()}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteBroadcast(item._id)}
+                    className="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 text-xs font-bold transition-colors shrink-0"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

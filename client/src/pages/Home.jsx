@@ -25,10 +25,28 @@ const Home = () => {
   // Real-time: prepend new incidents to map
   useEffect(() => {
     if (!socket) return;
-    socket.on('incident:new', (newIncident) => {
+
+    const handleNewIncident = (newIncident) => {
       setIncidents(prev => [newIncident, ...prev]);
-    });
-    return () => socket.off('incident:new');
+    };
+
+    const handleUpdatedIncident = (updatedIncident) => {
+      setIncidents(prev => prev.map(i => i._id === updatedIncident._id ? updatedIncident : i));
+    };
+
+    const handleDeletedIncident = ({ _id }) => {
+      setIncidents(prev => prev.filter(i => i._id !== _id));
+    };
+
+    socket.on('incident:new', handleNewIncident);
+    socket.on('incident:updated', handleUpdatedIncident);
+    socket.on('incident:deleted', handleDeletedIncident);
+
+    return () => {
+      socket.off('incident:new');
+      socket.off('incident:updated');
+      socket.off('incident:deleted');
+    };
   }, [socket]);
 
   return (

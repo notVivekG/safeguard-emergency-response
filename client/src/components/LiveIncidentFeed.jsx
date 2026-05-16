@@ -14,20 +14,28 @@ const LiveIncidentFeed = () => {
   useEffect(() => {
     fetchIncidents();
     
-    if (socket) {
-      socket.on('incident:new', (newIncident) => {
-        setIncidents((prev) => [newIncident, ...prev].slice(0, 10)); // keep last 10
-      });
-      socket.on('incident:updated', (updatedIncident) => {
-        setIncidents((prev) => prev.map(inc => inc._id === updatedIncident._id ? updatedIncident : inc));
-      });
-    }
+    if (!socket) return;
+
+    const handleNewIncident = (incident) => {
+      setIncidents(prev => [incident, ...prev].slice(0, 10));
+    };
+
+    const handleDeletedIncident = ({ _id }) => {
+      setIncidents(prev => prev.filter(i => i._id !== _id));
+    };
+
+    const handleUpdatedIncident = (updated) => {
+      setIncidents(prev => prev.map(i => i._id === updated._id ? updated : i));
+    };
+
+    socket.on('incident:new', handleNewIncident);
+    socket.on('incident:deleted', handleDeletedIncident);
+    socket.on('incident:updated', handleUpdatedIncident);
 
     return () => {
-      if (socket) {
-        socket.off('incident:new');
-        socket.off('incident:updated');
-      }
+      socket.off('incident:new', handleNewIncident);
+      socket.off('incident:deleted', handleDeletedIncident);
+      socket.off('incident:updated', handleUpdatedIncident);
     };
   }, [socket]);
 

@@ -5,7 +5,7 @@ export const createIncident = async (req, res) => {
   try {
     const { title, description, type, severity, location, address, aiPrediction } = req.body;
 
-    const incident = await Incident.create({
+    const savedIncident = await Incident.create({
       title,
       description,
       type,
@@ -21,12 +21,12 @@ export const createIncident = async (req, res) => {
     });
 
     // Emit socket event
-    req.io.emit('incident:new', incident);
+    req.io.emit('incident:new', savedIncident);
 
     // Send Firebase notification to "alerts" topic (or could be nearby based on geo)
     await sendTopicNotification('alerts', `New ${severity.toUpperCase()} Severity Alert`, `${type} reported at ${address}`);
 
-    res.status(201).json(incident);
+    res.status(201).json(savedIncident);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -125,6 +125,7 @@ export const deleteIncident = async (req, res) => {
     }
 
     await Incident.deleteOne({ _id: incident._id });
+    req.io.emit('incident:deleted', { _id: req.params.id });
     res.json({ message: 'Incident removed' });
   } catch (error) {
     res.status(500).json({ message: error.message });

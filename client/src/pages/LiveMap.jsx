@@ -31,9 +31,13 @@ const LiveMap = () => {
     socket.on('incident:updated', (updated) => {
       setIncidents(prev => prev.map(i => i._id === updated._id ? updated : i));
     });
+    socket.on('incident:deleted', ({ _id }) => {
+      setIncidents(prev => prev.filter(i => i._id !== _id));
+    });
     return () => {
       socket.off('incident:new');
       socket.off('incident:updated');
+      socket.off('incident:deleted');
     };
   }, [socket]);
 

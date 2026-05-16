@@ -63,7 +63,7 @@ const Navbar = () => {
     const handleNewIncident = (incident) => {
       setNotifications(prev => [{
         id: incident._id || Date.now(),
-        title: `New ${incident.type?.charAt(0).toUpperCase() + incident.type?.slice(1)} Incident`,
+        title: `New ${incident.type} Incident`,
         body: `${incident.title} — ${incident.address || 'Location unknown'}`,
         time: new Date().toLocaleTimeString(),
         read: false
@@ -72,7 +72,7 @@ const Navbar = () => {
 
     const handleBroadcast = (notif) => {
       setNotifications(prev => [{
-        id: notif.id || Date.now(),
+        id: notif._id || Date.now(),
         title: '📢 ' + notif.title,
         body: notif.body,
         time: new Date().toLocaleTimeString(),
@@ -108,7 +108,7 @@ const Navbar = () => {
       animate={{ opacity: 1 }}
       className="bg-navy dark:bg-navy-light text-white sticky top-0 z-50 w-full"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
 
           {/* Logo */}
@@ -125,8 +125,8 @@ const Navbar = () => {
           </div>
 
           {/* Center Links (Desktop) */}
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-4">
+          <div className="hidden lg:flex items-center gap-6">
+            <div className="flex items-baseline space-x-4">
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
@@ -144,9 +144,12 @@ const Navbar = () => {
           </div>
 
           {/* Right Section */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="flex items-center gap-1 sm:gap-2">
             {/* Dark Mode Toggle */}
-            <button onClick={() => setDarkMode(!darkMode)} className="text-gray-300 hover:text-white text-lg">
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-1.5 sm:p-2 rounded-full hover:bg-gray-700 transition-colors text-gray-300 hover:text-white text-lg"
+            >
               {darkMode ? '☀️' : '🌙'}
             </button>
 
@@ -155,7 +158,7 @@ const Navbar = () => {
               <button
                 id="notif-btn"
                 onClick={() => { setNotifOpen(!notifOpen); setDropdownOpen(false); }}
-                className="relative p-1 rounded-full text-gray-400 hover:text-white focus:outline-none"
+                className="relative p-1.5 sm:p-2 rounded-full hover:bg-gray-700 transition-colors text-gray-400 hover:text-white focus:outline-none"
               >
                 {notifications.length > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
@@ -201,12 +204,12 @@ const Navbar = () => {
               <div className="relative" ref={dropdownRef} id="profile-dropdown">
                 <button
                   onClick={() => { setDropdownOpen(!dropdownOpen); setNotifOpen(false); }}
-                  className="flex items-center gap-2 cursor-pointer focus:outline-none"
+                  className="flex items-center gap-1 p-1.5 sm:p-2 rounded-full hover:bg-gray-700 cursor-pointer focus:outline-none"
                 >
-                  <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-white font-bold">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                     {user.name.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-sm font-medium text-white">{user.name}</span>
+                  <span className="hidden lg:block text-white text-sm">{user.name}</span>
                   <svg className={`w-4 h-4 text-gray-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -241,15 +244,11 @@ const Navbar = () => {
                 )}
               </div>
             ) : (
-              <Link to="/login" className="text-sm font-medium text-white hover:text-gray-300">Login</Link>
+              <Link to="/login" className="px-3 py-1.5 sm:px-4 sm:py-2 bg-red-600 text-white rounded-lg text-xs sm:text-sm font-semibold hover:bg-red-500 transition-colors">Login</Link>
             )}
-          </div>
-
-          {/* Mobile menu button */}
-          <div className="-mr-2 flex md:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none"
+              className="lg:hidden inline-flex items-center justify-center p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none"
             >
               <span className="sr-only">Open main menu</span>
               {!isOpen ? (
@@ -273,7 +272,7 @@ const Navbar = () => {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="md:hidden overflow-hidden bg-navy-light"
+            className="lg:hidden overflow-hidden bg-navy-light"
           >
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
               {navLinks.map((link) => (

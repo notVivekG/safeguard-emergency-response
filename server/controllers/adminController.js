@@ -69,12 +69,7 @@ export const broadcastNotification = async (req, res) => {
       isGlobal: true
     });
     // Emit to ALL connected socket clients instantly
-    req.io.emit('broadcast:new', {
-      id: notification._id,
-      title,
-      body: bodyText,
-      createdAt: notification.createdAt
-    });
+    req.io.emit('broadcast:new', notification);
     // Also send Firebase push
     await sendTopicNotification('alerts', title, bodyText).catch(() => {});
     res.status(201).json({ message: 'Broadcast sent', notification });
