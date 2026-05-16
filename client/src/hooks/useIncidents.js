@@ -11,7 +11,7 @@ const useIncidents = (filters = {}) => {
     try {
       const queryParams = new URLSearchParams(filters).toString();
       const { data } = await api.get(`/incidents?${queryParams}`);
-      setIncidents(data);
+      setIncidents(data?.incidents || data || []);
       setError(null);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch incidents');

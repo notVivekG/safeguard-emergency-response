@@ -4,21 +4,30 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.heat';
 
-// Custom icons
-const getIcon = (type) => {
+// Marker color mapping
+const getMarkerColor = (type) => {
   const colors = {
-    fire: '#F59E0B',
+    fire: '#EF4444',
     flood: '#3B82F6',
-    earthquake: '#EAB308',
+    earthquake: '#F59E0B',
     accident: '#22C55E',
-    medical: '#E53935',
-    other: '#A855F7'
+    medical: '#8B5CF6',
+    other: '#6B7280'
   };
-  const color = colors[type] || colors.other;
-  
+  return colors[type] || '#6B7280';
+};
+
+const createCustomIcon = (type) => {
+  const color = getMarkerColor(type);
   return L.divIcon({
-    className: 'custom-icon',
-    html: `<div style="background-color: ${color}; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
+    className: '',
+    html: `<div style="
+      width: 16px; height: 16px;
+      background: ${color};
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    "></div>`,
     iconSize: [16, 16],
     iconAnchor: [8, 8]
   });
@@ -80,7 +89,7 @@ const MapView = ({ incidents = [], showHeatmap = false, userLocation, onLocation
       <MapContainer 
         center={userLocation || defaultCenter} 
         zoom={5} 
-        style={{ height: '100%', width: '100%' }}
+        style={{ height: '100%', width: '100%', minHeight: '400px' }}
         zoomControl={false}
       >
         <TileLayer
@@ -98,7 +107,7 @@ const MapView = ({ incidents = [], showHeatmap = false, userLocation, onLocation
             <Marker 
               key={inc._id} 
               position={[inc.location.coordinates[1], inc.location.coordinates[0]]}
-              icon={getIcon(inc.type)}
+              icon={createCustomIcon(inc.type)}
             >
               <Popup>
                 <div className="p-1">
@@ -124,7 +133,7 @@ const MapView = ({ incidents = [], showHeatmap = false, userLocation, onLocation
         )}
 
         {pickedLocation && (
-           <Marker position={[pickedLocation.lat, pickedLocation.lng]} icon={getIcon('other')} />
+           <Marker position={[pickedLocation.lat, pickedLocation.lng]} icon={createCustomIcon('other')} />
         )}
       </MapContainer>
     </div>

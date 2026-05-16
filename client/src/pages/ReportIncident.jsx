@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import MapView from '../components/MapView';
 import useGeolocation from '../hooks/useGeolocation';
 import api from '../services/api';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import SOSButton from '../components/SOSButton';
@@ -8,15 +8,28 @@ import LiveIncidentFeed from '../components/LiveIncidentFeed';
 import StatBar from '../components/StatBar';
 import useGeolocation from '../hooks/useGeolocation';
 import api from '../services/api';
+import { SocketContext } from '../context/SocketContext';
 
 const Home = () => {
   const [incidents, setIncidents] = useState([]);
   const { location: userLocation } = useGeolocation();
   const [sharingLocation, setSharingLocation] = useState(false);
+  const { socket } = useContext(SocketContext);
 
   useEffect(() => {
-    api.get('/incidents?status=active').then(res => setIncidents(res.data));
+    api.get('/incidents?status=active').then(res =>
+      setIncidents(res.data?.incidents || res.data || [])
+    );
   }, []);
+
+  // Real-time: prepend new incidents to map
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('incident:new', (newIncident) => {
+      setIncidents(prev => [newIncident, ...prev]);
+    });
+    return () => socket.off('incident:new');
+  }, [socket]);
 
   return (
     <motion.div

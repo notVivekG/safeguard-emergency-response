@@ -19,6 +19,7 @@ import userRoutes from './routes/users.js';
 import volunteerRoutes from './routes/volunteers.js';
 import adminRoutes from './routes/admin.js';
 import aiRoutes from './routes/ai.js';
+import notificationRoutes from './routes/notifications.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -60,6 +61,7 @@ app.use('/api/v1/users', userRoutes);
 app.use('/api/v1/volunteers', volunteerRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/ai', aiRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
 
 // Error Handling
 app.use(errorHandler);
@@ -70,6 +72,13 @@ setupSocketHandlers(io);
 // Database Connection
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGODB_URI;
+
+httpServer.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} busy. Run: npx kill-port ${PORT}`);
+    process.exit(1);
+  }
+});
 
 mongoose.connect(MONGO_URI)
   .then(() => {

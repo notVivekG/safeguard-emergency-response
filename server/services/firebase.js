@@ -1,6 +1,7 @@
 import admin from 'firebase-admin';
 import dotenv from 'dotenv';
 import fs from 'fs';
+import path from 'path';
 dotenv.config();
 
 let isInitialized = false;
@@ -8,12 +9,22 @@ let isInitialized = false;
 try {
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     let serviceAccount;
-    // Check if it's a valid JSON string
-    if (process.env.FIREBASE_SERVICE_ACCOUNT.startsWith('{')) {
-      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    } else if (fs.existsSync(process.env.FIREBASE_SERVICE_ACCOUNT)) {
-      // Otherwise treat as a path
-      serviceAccount = JSON.parse(fs.readFileSync(process.env.FIREBASE_SERVICE_ACCOUNT, 'utf8'));
+    const envValue = process.env.FIREBASE_SERVICE_ACCOUNT.trim();
+
+    // 1. Check if it's a raw JSON string
+    if (envValue.startsWith('{')) {
+      serviceAccount = JSON.parse(envValue);
+    } 
+    // 2. Otherwise treat it as a file path
+    else {
+      // Resolve path relative to the server directory
+      const filePath = path.resolve(process.cwd(), envValue);
+      
+      if (fs.existsSync(filePath)) {
+        serviceAccount = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      } else {
+        console.warn(`Firebase file not found at: ${filePath}`);
+      }
     }
     
     if (serviceAccount) {
@@ -23,7 +34,7 @@ try {
       isInitialized = true;
       console.log('Firebase Admin Initialized');
     } else {
-      console.warn('Firebase Service Account not valid. Firebase not initialized.');
+      console.warn('Firebase Service Account could not be loaded. Firebase not initialized.');
     }
   } else {
     console.warn('FIREBASE_SERVICE_ACCOUNT missing. Firebase not initialized.');

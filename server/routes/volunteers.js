@@ -4,7 +4,8 @@ import {
   getAllVolunteers, 
   updateVolunteerStatus 
 } from '../controllers/volunteerController.js';
-import { protect, admin } from '../middleware/auth.js';
+import { protect } from '../middleware/auth.js';
+import { admin } from '../middleware/admin.js';
 
 const router = express.Router();
 

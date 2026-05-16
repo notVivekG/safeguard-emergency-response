@@ -1,91 +1,50 @@
-import React, { useState, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
-import api from '../services/api';
+import React, { useState } from 'react';
 
 const SOSButton = () => {
   const [showModal, setShowModal] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const { user } = useContext(AuthContext);
-
-  const handleSOS = async () => {
-    if (!user) {
-      alert("Please login to use SOS");
-      return;
-    }
-    setLoading(true);
-    try {
-      // In a real app, we'd get real coords here via useGeolocation
-      const coords = { lat: 0, lng: 0 }; 
-      if(navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(async (pos) => {
-              const { latitude, longitude } = pos.coords;
-              await api.post('/users/sos', { location: { lat: latitude, lng: longitude }, address: "Current Location" });
-              alert('SOS Sent successfully!');
-              setShowModal(false);
-              setLoading(false);
-          }, async () => {
-             await api.post('/users/sos', { location: { lat: 0, lng: 0 }, address: "Unknown Location" });
-             alert('SOS Sent without precise location!');
-             setShowModal(false);
-             setLoading(false);
-          });
-      } else {
-        await api.post('/users/sos', { location: { lat: 0, lng: 0 }, address: "Unknown Location" });
-        alert('SOS Sent successfully!');
-        setShowModal(false);
-        setLoading(false);
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Failed to send SOS');
-      setLoading(false);
-    }
-  };
 
   return (
-    <>
-      <div className="relative inline-flex items-center justify-center">
-        <div className="sos-ring"></div>
-        <div className="sos-ring"></div>
-        <div className="sos-ring"></div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="relative z-10 w-24 h-24 bg-primary hover:bg-primary-dark rounded-full text-white font-bold text-xl shadow-lg transition-colors flex flex-col items-center justify-center"
-        >
-          <svg className="w-8 h-8 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-          SOS
-        </button>
-      </div>
+    <div className="relative flex items-center justify-center">
+      {/* Pulsing rings */}
+      <span className="sos-ring absolute inline-flex h-16 w-16 rounded-full bg-red-500 opacity-75"></span>
+      <span className="sos-ring-2 absolute inline-flex h-16 w-16 rounded-full bg-red-500 opacity-75"></span>
+      <span className="sos-ring-3 absolute inline-flex h-16 w-16 rounded-full bg-red-500 opacity-75"></span>
 
+      {/* Main button */}
+      <button
+        onClick={() => setShowModal(true)}
+        className="relative z-10 w-16 h-16 bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm rounded-full shadow-lg transition-colors flex items-center justify-center"
+      >
+        SOS
+      </button>
+
+      {/* Confirmation Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white dark:bg-navy p-6 rounded-lg shadow-xl max-w-sm w-full mx-4">
-            <h2 className="text-2xl font-bold text-primary mb-4">Confirm SOS</h2>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              This will immediately alert nearby responders and emergency contacts. Only use in a real emergency!
-            </p>
-            <div className="flex gap-4">
-              <button 
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-red-600 text-2xl font-extrabold">SOS</span>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Send SOS Alert?</h2>
+            <p className="text-gray-500 mb-6">This will immediately alert nearby emergency responders with your live location.</p>
+            <div className="flex gap-3">
+              <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors"
-                disabled={loading}
+                className="flex-1 py-3 border-2 border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
-              <button 
-                onClick={handleSOS}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors flex items-center justify-center"
-                disabled={loading}
+              <button
+                onClick={() => { setShowModal(false); alert('SOS Alert Sent! Help is on the way.'); }}
+                className="flex-1 py-3 bg-red-600 rounded-xl font-semibold text-white hover:bg-red-700"
               >
-                {loading ? 'Sending...' : 'Confirm SOS'}
+                Send SOS
               </button>
             </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

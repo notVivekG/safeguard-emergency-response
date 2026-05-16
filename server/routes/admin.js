@@ -6,7 +6,7 @@ import {
   broadcastNotification, 
   exportIncidentsCSV 
 } from '../controllers/adminController.js';
-import { protect, admin } from '../middleware/auth.js';
+import { protect } from '../middleware/auth.js';
 import { admin as adminMiddleware } from '../middleware/admin.js';
 
 const router = express.Router();

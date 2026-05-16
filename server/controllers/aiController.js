@@ -1,4 +1,4 @@
-import { predictIncidentSeverity } from '../services/huggingface.js';
+import { predictSeverity as predictIncidentSeverity } from '../services/huggingface.js';
 
 export const predictSeverity = async (req, res) => {
   try {

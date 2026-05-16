@@ -9,19 +9,32 @@ import useGeolocation from '../hooks/useGeolocation';
 
 const LiveMap = () => {
   const [filters, setFilters] = useState({ status: 'active' });
-  const { incidents, loading } = useIncidents(filters);
+  const { incidents: fetchedIncidents, loading } = useIncidents(filters);
+  const [incidents, setIncidents] = useState([]);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const { socket } = useContext(SocketContext);
   const [toastMsg, setToastMsg] = useState(null);
   const { location: userLocation } = useGeolocation();
 
+  // Sync fetched incidents into local state so we can update via socket
   useEffect(() => {
-    if(socket) {
-      socket.on('incident:new', (incident) => {
-        setToastMsg(`New ${incident.type} alert reported near you!`);
-      });
-    }
-    return () => socket && socket.off('incident:new');
+    setIncidents(fetchedIncidents);
+  }, [fetchedIncidents]);
+
+  // Real-time socket updates
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('incident:new', (newIncident) => {
+      setToastMsg(`New ${newIncident.type} alert: ${newIncident.title}`);
+      setIncidents(prev => [newIncident, ...prev]);
+    });
+    socket.on('incident:updated', (updated) => {
+      setIncidents(prev => prev.map(i => i._id === updated._id ? updated : i));
+    });
+    return () => {
+      socket.off('incident:new');
+      socket.off('incident:updated');
+    };
   }, [socket]);
 
   return (

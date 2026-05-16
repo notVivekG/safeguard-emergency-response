@@ -20,7 +20,7 @@ const ProtectedRoute = ({ children, requireAdmin }) => {
   
   if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   if (!user) return <Navigate to="/login" />;
-  if (requireAdmin && user.role !== 'admin') return <Navigate to="/dashboard" />;
+  if (requireAdmin && user.role !== 'admin') return <Navigate to="/" />;
   
   return children;
 };
@@ -37,7 +37,11 @@ function App() {
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<Home />} />
             <Route path="/map" element={<LiveMap />} />
-            <Route path="/report" element={<ReportIncident />} />
+            <Route path="/report" element={
+              <ProtectedRoute>
+                <ReportIncident />
+              </ProtectedRoute>
+            } />
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/resources" element={<Resources />} />
             <Route path="/about" element={<About />} />
