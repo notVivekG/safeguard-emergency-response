@@ -42,6 +42,7 @@ const Navbar = () => {
 
   // Fetch persisted broadcast notifications on mount
   useEffect(() => {
+    if (!user) return;
     import('../services/api').then(({ default: api }) => {
       api.get('/notifications/broadcasts').then(res => {
         const existing = (res.data || []).map(n => ({
@@ -54,7 +55,7 @@ const Navbar = () => {
         setNotifications(existing);
       }).catch(() => {});
     });
-  }, []);
+  }, [user]);
 
   // Real-time notifications via socket
   useEffect(() => {

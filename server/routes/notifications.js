@@ -5,7 +5,7 @@ import Notification from '../models/Notification.js';
 const router = express.Router();
 
 // GET all global broadcast notifications (for bell persistence)
-router.get('/broadcasts', protect, async (req, res) => {
+router.get('/broadcasts', async (req, res) => {
   try {
     const notifications = await Notification.find({ isGlobal: true })
       .sort({ createdAt: -1 })

@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import rateLimit from 'express-rate-limit';
+import passport from './services/passport.js';
 
 import { errorHandler } from './middleware/errorHandler.js';
 import setupSocketHandlers from './socket/socketHandlers.js';
@@ -45,14 +46,16 @@ app.use(cors({
   credentials: true
 }));
 app.use(helmet());
+app.use(passport.initialize());
 
 // Rate Limiting (Global)
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  windowMs: 15 * 60 * 1000,
+  max: 10000,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
-app.use(globalLimiter);
+app.use('/api/v1/auth', globalLimiter);
 
 // Routes
 app.use('/api/v1/auth', authRoutes);

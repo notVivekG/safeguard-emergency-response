@@ -10,6 +10,10 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
+router.get('/me', protect, async (req, res) => {
+  res.json(req.user);
+});
+
 router.route('/profile')
   .get(protect, getProfile)
   .put(protect, updateProfile);

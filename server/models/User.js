@@ -18,7 +18,9 @@ const userSchema = new mongoose.Schema({
     phone: String,
     relation: String
   }],
-  isActive: { type: Boolean, default: true }
+  isActive: { type: Boolean, default: true },
+  resetOTP: { type: String },
+  resetOTPExpiry: { type: Date },
 }, { timestamps: true });
 
 userSchema.pre('save', async function() {

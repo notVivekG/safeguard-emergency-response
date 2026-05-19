@@ -16,6 +16,10 @@ const LiveMap = () => {
   const [toastMsg, setToastMsg] = useState(null);
   const { location: userLocation } = useGeolocation();
 
+  useEffect(() => { document.title = 'Live Map — SafeGuard'; }, []);
+
+  const clearFilters = () => setFilters({ status: 'active' });
+
   // Sync fetched incidents into local state so we can update via socket
   useEffect(() => {
     setIncidents(fetchedIncidents);
@@ -80,7 +84,13 @@ const LiveMap = () => {
           {loading ? (
              <div className="text-center text-gray-500 py-4">Loading incidents...</div>
           ) : incidents.length === 0 ? (
-             <div className="text-center text-gray-500 py-4">No incidents found.</div>
+             <div className="text-center py-8 px-4">
+               <div className="text-4xl mb-3">🗺️</div>
+               <p className="text-gray-500 text-sm">No incidents match your current filters.</p>
+               <button onClick={clearFilters} className="mt-3 text-red-600 text-sm hover:underline">
+                 Clear filters
+               </button>
+             </div>
           ) : (
             incidents.map(inc => (
               <IncidentCard key={inc._id} incident={inc} />

@@ -4,6 +4,8 @@ import { AnimatePresence } from 'framer-motion';
 import { AuthContext } from './context/AuthContext';
 
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import PageLoader from './components/PageLoader';
 import Home from './pages/Home';
 import LiveMap from './pages/LiveMap';
 import ReportIncident from './pages/ReportIncident';
@@ -14,11 +16,13 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Resources from './pages/Resources';
 import About from './pages/About';
+import NotFound from './pages/NotFound';
+import AuthCallback from './pages/AuthCallback';
 
 const ProtectedRoute = ({ children, requireAdmin }) => {
   const { user, loading } = useContext(AuthContext);
   
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (loading) return <PageLoader />;
   if (!user) return <Navigate to="/login" />;
   if (requireAdmin && user.role !== 'admin') return <Navigate to="/" />;
   
@@ -27,6 +31,9 @@ const ProtectedRoute = ({ children, requireAdmin }) => {
 
 function App() {
   const location = useLocation();
+  const { loading } = useContext(AuthContext);
+
+  if (loading) return <PageLoader />;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -48,6 +55,7 @@ function App() {
             
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
 
             <Route path="/dashboard" element={
               <ProtectedRoute>
@@ -60,9 +68,13 @@ function App() {
                 <Admin />
               </ProtectedRoute>
             } />
+
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </AnimatePresence>
       </main>
+
+      <Footer />
     </div>
   );
 }

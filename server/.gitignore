@@ -88,3 +88,8 @@ temp/
 # Optional Uploads
 # =========================
 uploads/
+
+# =========================
+# secret keys
+# =========================
+firebase-key.json

@@ -10,10 +10,14 @@ const api = axios.create({
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && error.response.status === 401) {
-      // Handle unauthorized (e.g., redirect to login)
-      localStorage.removeItem('token');
-      window.location.href = '/login';
+    if (error.response?.status === 401) {
+      const currentPath = window.location.pathname;
+      const isAuthPage = currentPath.includes('/login') || currentPath.includes('/register');
+      const isAuthRoute = error.config?.url?.includes('/auth/');
+      if (!isAuthPage && !isAuthRoute) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

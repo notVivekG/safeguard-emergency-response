@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import MapView from '../components/MapView';
@@ -15,6 +15,8 @@ const incidentTypes = [
 ];
 
 const ReportIncident = () => {
+  useEffect(() => { document.title = 'Report Incident — SafeGuard'; }, []);
+
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     type: '',

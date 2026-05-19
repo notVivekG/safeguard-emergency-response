@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, Link } from 'react-router-dom';
 import useIncidents from '../hooks/useIncidents';
@@ -14,7 +14,9 @@ const Alerts = () => {
 
   const [selectedIncident, setSelectedIncident] = useState(null);
 
-  React.useEffect(() => {
+  useEffect(() => { document.title = 'Alerts — SafeGuard'; }, []);
+
+  useEffect(() => {
     if (highlightId && incidents.length > 0) {
       const inc = incidents.find(i => i._id === highlightId);
       if (inc) setSelectedIncident(inc);
@@ -58,16 +60,12 @@ const Alerts = () => {
            ))}
         </div>
       ) : incidents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 px-4 text-center bg-white dark:bg-navy rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
-          <div className="w-24 h-24 bg-gray-50 dark:bg-navy-light rounded-full flex items-center justify-center mb-6">
-            <svg className="w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <h3 className="text-xl font-bold text-navy dark:text-white mb-2">No alerts found</h3>
-          <p className="text-gray-500 mb-8 max-w-md">Be the first to report an incident in your area.</p>
-          <Link to="/report" className="px-6 py-3 bg-primary hover:bg-primary-dark text-white font-bold rounded-lg transition-colors">
-            Report Incident
+        <div className="text-center py-20">
+          <div className="text-6xl mb-4">✅</div>
+          <h3 className="text-2xl font-bold text-gray-700 dark:text-white mb-2">All Clear</h3>
+          <p className="text-gray-500 mb-6">No active incidents reported in your area.</p>
+          <Link to="/report" className="px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">
+            Report an Incident
           </Link>
         </div>
       ) : (

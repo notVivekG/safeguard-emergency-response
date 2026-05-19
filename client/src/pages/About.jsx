@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 const About = () => {
+  useEffect(() => { document.title = 'About — SafeGuard'; }, []);
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-16 text-center">
       <div className="w-24 h-24 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6">

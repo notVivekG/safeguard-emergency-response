@@ -374,6 +374,8 @@ const Admin = () => {
   const [stats, setStats] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
 
+  useEffect(() => { document.title = 'Admin Panel — SafeGuard'; }, []);
+
   useEffect(() => {
     api.get('/admin/stats').then(res => setStats(res.data)).catch(console.error);
   }, []);

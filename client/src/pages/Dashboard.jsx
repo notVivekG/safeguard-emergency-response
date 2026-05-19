@@ -1,4 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
 import IncidentCard from '../components/IncidentCard';
@@ -8,6 +9,8 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('reports');
   const [reports, setReports] = useState([]);
   const [volunteerStatus, setVolunteerStatus] = useState(null);
+
+  useEffect(() => { document.title = 'Dashboard — SafeGuard'; }, []);
 
   useEffect(() => {
     if(activeTab === 'reports') {
@@ -51,7 +54,14 @@ const Dashboard = () => {
           <div>
             <h2 className="text-2xl font-bold text-navy dark:text-white mb-6">My Reports</h2>
             {reports.length === 0 ? (
-              <p className="text-gray-500">You haven't reported any incidents yet.</p>
+              <div className="text-center py-16">
+                <div className="text-5xl mb-4">📋</div>
+                <h3 className="text-xl font-bold text-gray-700 dark:text-white mb-2">No Reports Yet</h3>
+                <p className="text-gray-500 mb-6">You have not reported any incidents yet.</p>
+                <Link to="/report" className="px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">
+                  Report an Incident
+                </Link>
+              </div>
             ) : (
               <div className="space-y-4">
                 {reports.map(rep => <IncidentCard key={rep._id} incident={rep} />)}

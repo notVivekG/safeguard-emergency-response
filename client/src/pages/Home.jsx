@@ -16,6 +16,8 @@ const Home = () => {
   const [sharingLocation, setSharingLocation] = useState(false);
   const { socket } = useContext(SocketContext);
 
+  useEffect(() => { document.title = 'SafeGuard — Emergency Response'; }, []);
+
   useEffect(() => {
     api.get('/incidents?status=active').then(res =>
       setIncidents(res.data?.incidents || res.data || [])
