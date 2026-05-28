@@ -4,6 +4,7 @@ import { useLocation, Link } from 'react-router-dom';
 import useIncidents from '../hooks/useIncidents';
 import IncidentCard from '../components/IncidentCard';
 import SeverityBadge from '../components/SeverityBadge';
+import PageWrapper from '../components/PageWrapper';
 
 const Alerts = () => {
   const [filters, setFilters] = useState({ status: '' });
@@ -24,16 +25,16 @@ const Alerts = () => {
   }, [highlightId, incidents]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+    <PageWrapper className="mx-auto max-w-7xl overflow-x-hidden px-4 py-8 sm:px-6 lg:px-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-navy dark:text-white mb-2">Emergency Alerts</h1>
           <p className="text-gray-500">View and track all reported incidents.</p>
         </div>
         
-        <div className="flex gap-2 w-full md:w-auto">
+        <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 scrollbar-none whitespace-nowrap">
           <select 
-            className="flex-1 md:w-auto p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-navy dark:text-white outline-none"
+            className="flex-1 md:w-auto p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-navy dark:text-white outline-none h-11 shrink-0"
             onChange={e => setFilters(prev => ({...prev, status: e.target.value}))}
           >
             <option value="">All Statuses</option>
@@ -42,7 +43,7 @@ const Alerts = () => {
             <option value="resolved">Resolved</option>
           </select>
           <select 
-            className="flex-1 md:w-auto p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-navy dark:text-white outline-none"
+            className="flex-1 md:w-auto p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-navy dark:text-white outline-none h-11 shrink-0"
             onChange={e => setFilters(prev => ({...prev, severity: e.target.value}))}
           >
             <option value="">All Severities</option>
@@ -55,29 +56,37 @@ const Alerts = () => {
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-           {[...Array(6)].map((_, i) => (
-             <div key={i} className="h-40 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse"></div>
-           ))}
+          {[1,2,3,4,5,6].map(i => (
+            <div key={i} className="h-48 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+          ))}
         </div>
       ) : incidents.length === 0 ? (
         <div className="text-center py-20">
           <div className="text-6xl mb-4">✅</div>
           <h3 className="text-2xl font-bold text-gray-700 dark:text-white mb-2">All Clear</h3>
           <p className="text-gray-500 mb-6">No active incidents reported in your area.</p>
-          <Link to="/report" className="px-6 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700">
+          <Link to="/report" className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-red-600 px-6 py-3 font-semibold text-white hover:bg-red-700">
             Report an Incident
           </Link>
         </div>
       ) : (
-        <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <motion.div
+          layout
+          className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
+          variants={{ animate: { transition: { staggerChildren: 0.08 } } }}
+          initial="initial"
+          animate="animate"
+        >
           <AnimatePresence>
-            {incidents.map((incident, i) => (
+            {incidents.map((incident, index) => (
               <motion.div 
                 key={incident._id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                variants={{
+                  initial: { opacity: 0, y: 16 },
+                  animate: { opacity: 1, y: 0 }
+                }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ delay: i * 0.05 }}
+                transition={{ duration: 0.25, delay: index * 0.02 }}
                 onClick={() => setSelectedIncident(incident)}
                 className="cursor-pointer"
               >
@@ -91,19 +100,19 @@ const Alerts = () => {
       {/* Modal */}
       <AnimatePresence>
         {selectedIncident && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4 bg-black/60 backdrop-blur-sm">
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="bg-white dark:bg-navy-light w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl shadow-2xl"
+              className="bg-white dark:bg-navy-light w-full h-full md:h-auto md:max-h-[90vh] md:max-w-2xl overflow-y-auto rounded-none md:rounded-xl shadow-2xl"
             >
               <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-start sticky top-0 bg-white dark:bg-navy-light z-10">
                 <div>
                   <h2 className="text-2xl font-bold text-navy dark:text-white">{selectedIncident.title}</h2>
-                  <p className="text-gray-500 capitalize">{selectedIncident.type} • ID: {selectedIncident._id}</p>
+                  <p className="text-gray-500 capitalize text-sm">{selectedIncident.type} • ID: {selectedIncident._id}</p>
                 </div>
-                <button onClick={() => setSelectedIncident(null)} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                <button onClick={() => setSelectedIncident(null)} className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 w-10 h-10 flex items-center justify-center font-bold">
                   ✕
                 </button>
               </div>
@@ -155,8 +164,7 @@ const Alerts = () => {
           </div>
         )}
       </AnimatePresence>
-
-    </div>
+    </PageWrapper>
   );
 };
 

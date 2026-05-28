@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import api from '../services/api';
+import PageWrapper from '../components/PageWrapper';
 
 // ── Shared table styles ────────────────────────────────────────────
 const thCls = 'px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider';
@@ -10,23 +11,40 @@ const severityColor = { high: 'bg-red-100 text-red-700', medium: 'bg-yellow-100 
 const statusColor   = { active: 'bg-red-100 text-red-700', investigating: 'bg-blue-100 text-blue-700', resolved: 'bg-green-100 text-green-700' };
 
 // ── Overview ───────────────────────────────────────────────────────
-const OverviewTab = ({ stats }) => (
+const OverviewTab = ({ statsLoading, stats }) => (
   <div>
     <h2 className="text-2xl font-bold text-navy dark:text-white mb-6">Overview Dashboard</h2>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {[
-        { label: 'Total Incidents',    value: stats?.totalIncidents,    bg: 'bg-red-50 dark:bg-red-900/20',     border: 'border-red-200 dark:border-red-800',     text: 'text-red-800 dark:text-red-400' },
-        { label: 'Active Incidents',   value: stats?.activeIncidents,   bg: 'bg-yellow-50 dark:bg-yellow-900/20', border: 'border-yellow-200 dark:border-yellow-800', text: 'text-yellow-800 dark:text-yellow-400' },
-        { label: 'Resolved',           value: stats?.resolvedIncidents, bg: 'bg-green-50 dark:bg-green-900/20',  border: 'border-green-200 dark:border-green-800',   text: 'text-green-800 dark:text-green-400' },
-        { label: 'Total Users',        value: stats?.totalUsers,        bg: 'bg-blue-50 dark:bg-blue-900/20',   border: 'border-blue-200 dark:border-blue-800',     text: 'text-blue-800 dark:text-blue-400' },
-        { label: 'Active Volunteers',  value: stats?.activeVolunteers,  bg: 'bg-purple-50 dark:bg-purple-900/20', border: 'border-purple-200 dark:border-purple-800', text: 'text-purple-800 dark:text-purple-400' },
-      ].map(({ label, value, bg, border, text }) => (
-        <div key={label} className={`${bg} p-6 rounded-xl border ${border}`}>
-          <p className={`${text} font-bold mb-2`}>{label}</p>
-          <p className="text-4xl font-bold text-navy dark:text-white">{value ?? '—'}</p>
-        </div>
-      ))}
-    </div>
+    {statsLoading ? (
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {[1, 2, 3, 4, 5].map((card) => (
+          <div key={card} className="h-36 rounded-xl bg-gray-200 animate-pulse dark:bg-gray-700" />
+        ))}
+      </div>
+    ) : (
+      <motion.div
+        className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
+        variants={{ show: { transition: { staggerChildren: 0.08 } } }}
+        initial="hidden"
+        animate="show"
+      >
+        {[
+          { label: 'Total Incidents', value: stats?.totalIncidents, bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800', text: 'text-red-800 dark:text-red-400' },
+          { label: 'Active Incidents', value: stats?.activeIncidents, bg: 'bg-yellow-50 dark:bg-yellow-900/20', border: 'border-yellow-200 dark:border-yellow-800', text: 'text-yellow-800 dark:text-yellow-400' },
+          { label: 'Resolved', value: stats?.resolvedIncidents, bg: 'bg-green-50 dark:bg-green-900/20', border: 'border-green-200 dark:border-green-800', text: 'text-green-800 dark:text-green-400' },
+          { label: 'Total Users', value: stats?.totalUsers, bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-800', text: 'text-blue-800 dark:text-blue-400' },
+          { label: 'Active Volunteers', value: stats?.activeVolunteers, bg: 'bg-purple-50 dark:bg-purple-900/20', border: 'border-purple-200 dark:border-purple-800', text: 'text-purple-800 dark:text-purple-400' }
+        ].map(({ label, value, bg, border, text }) => (
+          <motion.div
+            key={label}
+            variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
+            className={`${bg} rounded-xl border p-6 ${border}`}
+          >
+            <p className={`${text} mb-2 font-bold`}>{label}</p>
+            <p className="text-4xl font-bold text-navy dark:text-white">{value ?? '—'}</p>
+          </motion.div>
+        ))}
+      </motion.div>
+    )}
   </div>
 );
 
@@ -67,11 +85,15 @@ const IncidentsTab = () => {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search by title..."
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-navy dark:text-white outline-none focus:ring-2 focus:ring-primary w-64"
+          className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary dark:border-gray-600 dark:bg-navy dark:text-white md:w-64"
         />
       </div>
       {loading ? (
-        <div className="text-center py-12 text-gray-400">Loading incidents...</div>
+        <div className="space-y-3">
+          {[1,2,3,4,5].map(i => (
+            <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+          ))}
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -150,7 +172,11 @@ const UsersTab = () => {
     <div>
       <h2 className="text-2xl font-bold text-navy dark:text-white mb-4">Users</h2>
       {loading ? (
-        <div className="text-center py-12 text-gray-400">Loading users...</div>
+        <div className="space-y-3">
+          {[1,2,3,4,5].map(i => (
+            <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+          ))}
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -260,7 +286,7 @@ const BroadcastTab = () => {
             value={form.title}
             onChange={e => setForm({ ...form, title: e.target.value })}
             placeholder="e.g., Emergency Alert"
-            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-navy dark:text-white outline-none focus:ring-2 focus:ring-primary"
+            className="w-full min-h-[44px] rounded-lg border border-gray-300 bg-white p-3 outline-none focus:ring-2 focus:ring-primary dark:border-gray-600 dark:bg-navy dark:text-white"
           />
         </div>
         <div>
@@ -270,13 +296,13 @@ const BroadcastTab = () => {
             value={form.message}
             onChange={e => setForm({ ...form, message: e.target.value })}
             placeholder="Write your broadcast message here..."
-            className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-navy dark:text-white outline-none focus:ring-2 focus:ring-primary resize-none"
+            className="w-full min-h-[44px] rounded-lg border border-gray-300 bg-white p-3 outline-none focus:ring-2 focus:ring-primary resize-none dark:border-gray-600 dark:bg-navy dark:text-white"
           />
         </div>
         <button
           onClick={handleSend}
           disabled={sending}
-          className="w-full py-3 bg-primary hover:bg-primary-dark text-white font-bold rounded-lg transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 font-bold text-white transition-colors hover:bg-primary-dark disabled:opacity-70"
         >
           {sending ? 'Sending...' : '📢 Send Notification to All Users'}
         </button>
@@ -284,7 +310,11 @@ const BroadcastTab = () => {
       <div className="mt-8">
         <h3 className="text-lg font-bold text-navy dark:text-white mb-3">Broadcast History</h3>
         {loadingHistory ? (
-          <div className="text-sm text-gray-400">Loading broadcasts...</div>
+          <div className="space-y-3">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="h-24 rounded-lg bg-gray-200 animate-pulse dark:bg-gray-700" />
+            ))}
+          </div>
         ) : broadcasts.length === 0 ? (
           <div className="text-sm text-gray-400">No broadcasts yet.</div>
         ) : (
@@ -302,7 +332,7 @@ const BroadcastTab = () => {
                   </div>
                   <button
                     onClick={() => handleDeleteBroadcast(item._id)}
-                    className="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 text-xs font-bold transition-colors shrink-0"
+                    className="min-h-[44px] shrink-0 rounded bg-red-100 px-3 py-1 text-xs font-bold text-red-600 transition-colors hover:bg-red-200"
                   >
                     Delete
                   </button>
@@ -319,6 +349,11 @@ const BroadcastTab = () => {
 // ── Export Tab ────────────────────────────────────────────────────
 const ExportTab = () => {
   const [exporting, setExporting] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/incidents').finally(() => setLoading(false));
+  }, []);
 
   const handleExport = async () => {
     setExporting(true);
@@ -353,6 +388,9 @@ const ExportTab = () => {
   return (
     <div className="max-w-md">
       <h2 className="text-2xl font-bold text-navy dark:text-white mb-6">Export Data</h2>
+      {loading ? (
+        <div className="h-48 rounded-xl bg-gray-200 animate-pulse dark:bg-gray-700" />
+      ) : (
       <div className="bg-gray-50 dark:bg-navy p-6 rounded-xl border border-gray-200 dark:border-gray-700">
         <div className="text-4xl mb-4">📊</div>
         <h3 className="font-bold text-lg text-navy dark:text-white mb-2">Incidents Report</h3>
@@ -360,11 +398,12 @@ const ExportTab = () => {
         <button
           onClick={handleExport}
           disabled={exporting}
-          className="w-full py-3 bg-navy hover:bg-gray-800 text-white font-bold rounded-lg transition-colors disabled:opacity-70 flex items-center justify-center gap-2"
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg bg-navy py-3 font-bold text-white transition-colors hover:bg-gray-800 disabled:opacity-70"
         >
           {exporting ? 'Generating...' : '⬇️ Download Incidents CSV'}
         </button>
       </div>
+      )}
     </div>
   );
 };
@@ -372,12 +411,16 @@ const ExportTab = () => {
 // ── Main Admin Page ───────────────────────────────────────────────
 const Admin = () => {
   const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => { document.title = 'Admin Panel — SafeGuard'; }, []);
 
   useEffect(() => {
-    api.get('/admin/stats').then(res => setStats(res.data)).catch(console.error);
+    api.get('/admin/stats')
+      .then(res => setStats(res.data))
+      .catch(console.error)
+      .finally(() => setStatsLoading(false));
   }, []);
 
   const tabs = [
@@ -389,7 +432,7 @@ const Admin = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-6 h-[calc(100vh-64px)] overflow-hidden">
+    <PageWrapper className="mx-auto flex h-[calc(100vh-64px)] max-w-7xl gap-6 overflow-hidden px-4 py-8 sm:px-6 lg:px-8">
       {/* Sidebar */}
       <div className="w-56 bg-navy text-white rounded-xl shadow-lg p-4 flex flex-col shrink-0">
         <h2 className="font-bold text-lg mb-6 flex items-center gap-2 px-2">
@@ -403,7 +446,7 @@ const Admin = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm ${
+              className={`flex min-h-[44px] items-center gap-2 rounded-lg px-4 py-2.5 text-left text-sm font-medium transition-colors ${
                 activeTab === tab.id ? 'bg-primary text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
               }`}
             >
@@ -421,14 +464,14 @@ const Admin = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.15 }}
         >
-          {activeTab === 'overview'  && <OverviewTab stats={stats} />}
+          {activeTab === 'overview'  && <OverviewTab stats={stats} statsLoading={statsLoading} />}
           {activeTab === 'incidents' && <IncidentsTab />}
           {activeTab === 'users'     && <UsersTab />}
           {activeTab === 'broadcast' && <BroadcastTab />}
           {activeTab === 'export'    && <ExportTab />}
         </motion.div>
       </div>
-    </div>
+    </PageWrapper>
   );
 };
 

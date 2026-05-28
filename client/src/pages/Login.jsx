@@ -3,12 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
 import GoogleLoginButton from '../components/GoogleLoginButton';
+import PageWrapper from '../components/PageWrapper';
 
 const PasswordEyeToggle = ({ show, onToggle }) => (
   <button
     type="button"
     onClick={onToggle}
-    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+    className="absolute right-2 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center text-gray-400 hover:text-gray-600"
   >
     {show ? (
       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -106,8 +107,8 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-navy-light w-full max-w-md rounded-2xl shadow-2xl p-8 border border-gray-100 dark:border-gray-800">
+    <PageWrapper className="flex min-h-[calc(100vh-64px)] items-center justify-center overflow-x-hidden px-4 py-6 sm:p-6">
+      <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-5 shadow-2xl dark:border-gray-800 dark:bg-navy-light sm:p-8">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-primary" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" /></svg>
@@ -121,7 +122,7 @@ const Login = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-            <input type="email" required value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors" placeholder="you@example.com" />
+            <input type="email" required value={email} onChange={e=>setEmail(e.target.value)} className="w-full min-h-[44px] rounded-lg border border-gray-300 bg-transparent px-3 py-3 transition-colors outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-gray-600 dark:text-white" placeholder="you@example.com" />
           </div>
           <div>
             <div className="flex justify-between items-center mb-1">
@@ -129,7 +130,7 @@ const Login = () => {
               <button
                 type="button"
                 onClick={() => setForgotOpen(true)}
-                className="text-xs text-primary hover:text-primary-dark"
+                className="min-h-[44px] text-xs text-primary hover:text-primary-dark"
               >
                 Forgot password?
               </button>
@@ -140,14 +141,14 @@ const Login = () => {
                 required
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                className="w-full p-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-white focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
+                className="w-full min-h-[44px] rounded-lg border border-gray-300 bg-transparent px-3 py-3 pr-12 transition-colors outline-none focus:border-primary focus:ring-1 focus:ring-primary dark:border-gray-600 dark:text-white"
                 placeholder="••••••••"
               />
               <PasswordEyeToggle show={showPassword} onToggle={() => setShowPassword(!showPassword)} />
             </div>
           </div>
           
-          <button type="submit" disabled={loading} className="w-full py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark transition-colors disabled:opacity-70 mt-6">
+          <button type="submit" disabled={loading} className="mt-6 w-full min-h-[44px] rounded-lg bg-primary px-4 py-3 font-bold text-white transition-colors hover:bg-primary-dark disabled:opacity-70">
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
@@ -161,7 +162,7 @@ const Login = () => {
 
       {forgotOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl">
+          <div className="mx-4 w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl dark:bg-gray-800 sm:p-8">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
               {forgotStep === 1 && 'Forgot Password'}
               {forgotStep === 2 && 'Enter OTP'}
@@ -177,10 +178,10 @@ const Login = () => {
                   placeholder="Enter your email"
                   value={forgotEmail}
                   onChange={e => setForgotEmail(e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-3 mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="mb-4 w-full min-h-[44px] rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 />
                 <button onClick={sendOTP} disabled={forgotLoading}
-                  className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50">
+                  className="w-full min-h-[44px] rounded-lg bg-red-600 px-4 py-3 font-semibold text-white hover:bg-red-700 disabled:opacity-50">
                   {forgotLoading ? 'Sending...' : 'Send OTP'}
                 </button>
               </>
@@ -193,10 +194,10 @@ const Login = () => {
                   maxLength={6}
                   value={forgotOTP}
                   onChange={e => setForgotOTP(e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-3 mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 tracking-widest text-center text-xl"
+                  className="mb-4 w-full min-h-[44px] rounded-lg border border-gray-300 px-4 py-3 text-center text-xl tracking-widest focus:outline-none focus:ring-2 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 />
                 <button onClick={verifyOTP}
-                  className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700">
+                  className="w-full min-h-[44px] rounded-lg bg-red-600 px-4 py-3 font-semibold text-white hover:bg-red-700">
                   Verify OTP
                 </button>
               </>
@@ -208,22 +209,22 @@ const Login = () => {
                   placeholder="Enter new password"
                   value={forgotPassword}
                   onChange={e => setForgotPassword(e.target.value)}
-                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg px-4 py-3 mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="mb-4 w-full min-h-[44px] rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                 />
                 <button onClick={doReset} disabled={forgotLoading}
-                  className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50">
+                  className="w-full min-h-[44px] rounded-lg bg-red-600 px-4 py-3 font-semibold text-white hover:bg-red-700 disabled:opacity-50">
                   {forgotLoading ? 'Resetting...' : 'Reset Password'}
                 </button>
               </>
             )}
             <button onClick={() => { setForgotOpen(false); setForgotStep(1); setForgotMsg(''); }}
-              className="w-full mt-3 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+              className="mt-3 w-full min-h-[44px] px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
               Cancel
             </button>
           </div>
         </div>
       )}
-    </div>
+    </PageWrapper>
   );
 };
 

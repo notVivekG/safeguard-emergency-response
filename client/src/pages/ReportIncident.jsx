@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import MapView from '../components/MapView';
 import useGeolocation from '../hooks/useGeolocation';
 import api from '../services/api';
+import PageWrapper from '../components/PageWrapper';
 
 const incidentTypes = [
   { id: 'fire', icon: '🔥', label: 'Fire' },
@@ -30,7 +31,6 @@ const ReportIncident = () => {
   const [loadingAI, setLoadingAI] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successId, setSuccessId] = useState(null);
-  const navigate = useNavigate();
   const { location: userLoc } = useGeolocation();
 
   const handlePredictSeverity = async () => {
@@ -78,7 +78,7 @@ const ReportIncident = () => {
 
   if (successId) {
     return (
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-4">
+      <PageWrapper className="flex min-h-[calc(100vh-64px)] items-center justify-center overflow-x-hidden p-4">
         <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-white dark:bg-navy-light p-8 rounded-xl shadow-2xl text-center max-w-md w-full">
           <div className="w-20 h-20 bg-safe text-white rounded-full flex items-center justify-center mx-auto mb-6">
              <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
@@ -90,25 +90,31 @@ const ReportIncident = () => {
             Track This Incident
           </Link>
         </motion.div>
-      </div>
+      </PageWrapper>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <PageWrapper className="mx-auto max-w-4xl overflow-x-hidden px-4 py-6 md:py-8">
       {/* Progress Bar */}
       <div className="mb-8">
-        <div className="flex justify-between mb-2">
-           <span className={`text-sm font-bold ${step >= 1 ? 'text-primary' : 'text-gray-400'}`}>1. Details</span>
-           <span className={`text-sm font-bold ${step >= 2 ? 'text-primary' : 'text-gray-400'}`}>2. Location</span>
-           <span className={`text-sm font-bold ${step >= 3 ? 'text-primary' : 'text-gray-400'}`}>3. Review</span>
+        <div className="flex justify-between items-center mb-2">
+          {/* Mobile step indicator */}
+          <span className="text-sm font-bold text-navy dark:text-white md:hidden">
+            Step {step} of 3
+          </span>
+          
+          {/* Desktop step indicator */}
+          <span className={`hidden md:inline text-sm font-bold ${step >= 1 ? 'text-primary' : 'text-gray-400'}`}>1. Details</span>
+          <span className={`hidden md:inline text-sm font-bold ${step >= 2 ? 'text-primary' : 'text-gray-400'}`}>2. Location</span>
+          <span className={`hidden md:inline text-sm font-bold ${step >= 3 ? 'text-primary' : 'text-gray-400'}`}>3. Review</span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
+        <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-2">
           <div className="bg-primary h-2 rounded-full transition-all duration-300" style={{ width: `${(step/3)*100}%` }}></div>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-navy-light rounded-xl shadow-lg p-6 md:p-8 border border-gray-100 dark:border-gray-800">
+      <div className="bg-white dark:bg-navy-light rounded-xl shadow-lg p-4 md:p-8 border border-gray-100 dark:border-gray-800">
         <AnimatePresence mode="wait">
           
           {step === 1 && (
@@ -120,7 +126,7 @@ const ReportIncident = () => {
                   <button 
                     key={type.id}
                     onClick={() => setFormData({...formData, type: type.id})}
-                    className={`p-4 rounded-lg border-2 flex flex-col items-center justify-center gap-2 transition-all ${formData.type === type.id ? 'border-primary bg-red-50 dark:bg-red-900/20 text-primary' : 'border-gray-200 dark:border-gray-700 hover:border-primary text-gray-500'}`}
+                    className={`p-4 rounded-lg border-2 flex flex-col items-center justify-center gap-2 transition-all min-h-[96px] ${formData.type === type.id ? 'border-primary bg-red-50 dark:bg-red-900/20 text-primary' : 'border-gray-200 dark:border-gray-700 hover:border-primary text-gray-500'}`}
                   >
                     <span className="text-3xl">{type.icon}</span>
                     <span className="font-semibold">{type.label}</span>
@@ -131,7 +137,7 @@ const ReportIncident = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
-                  <input type="text" className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:text-white outline-none focus:border-primary" placeholder="e.g., Major Fire in Downtown" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
+                  <input type="text" className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:text-white outline-none focus:border-primary h-11" placeholder="e.g., Major Fire in Downtown" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
@@ -140,7 +146,7 @@ const ReportIncident = () => {
               </div>
 
               <div className="mt-8 flex justify-end">
-                <button disabled={!formData.type || !formData.title} onClick={() => setStep(2)} className="px-6 py-2 bg-navy text-white rounded hover:bg-gray-800 disabled:opacity-50">Next Step →</button>
+                <button disabled={!formData.type || !formData.title} onClick={() => setStep(2)} className="px-6 py-3 bg-navy text-white rounded hover:bg-gray-800 disabled:opacity-50 h-12 flex items-center justify-center font-bold">Next Step →</button>
               </div>
             </motion.div>
           )}
@@ -149,23 +155,23 @@ const ReportIncident = () => {
             <motion.div key="step2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
               <h2 className="text-2xl font-bold mb-6 text-navy dark:text-white">Pinpoint Location</h2>
               
-              <div className="flex gap-4 mb-4">
-                <button onClick={() => {if(userLoc) handleLocationSelect(userLoc)}} className="px-4 py-2 bg-blue-100 text-blue-700 rounded font-medium hover:bg-blue-200 flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                <button onClick={() => {if(userLoc) handleLocationSelect(userLoc)}} className="px-4 py-3 bg-blue-100 text-blue-700 rounded font-bold hover:bg-blue-200 flex items-center justify-center gap-2 h-12 shrink-0">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                   Use My Location
                 </button>
                 <div className="flex-1">
-                  <input type="text" readOnly value={formData.address} placeholder="Click on map to set address" className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-navy dark:text-white" />
+                  <input type="text" readOnly value={formData.address} placeholder="Click on map to set address" className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded bg-gray-50 dark:bg-navy dark:text-white h-12" />
                 </div>
               </div>
 
-              <div className="h-[400px] border border-gray-300 dark:border-gray-700 rounded overflow-hidden">
+              <div className="h-[250px] md:h-[400px] border border-gray-300 dark:border-gray-700 rounded overflow-hidden">
                 <MapView onLocationSelect={handleLocationSelect} pickedLocation={formData.location} userLocation={userLoc} />
               </div>
 
               <div className="mt-8 flex justify-between">
-                <button onClick={() => setStep(1)} className="px-6 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-gray-800">← Back</button>
-                <button disabled={!formData.location} onClick={() => setStep(3)} className="px-6 py-2 bg-navy text-white rounded hover:bg-gray-800 disabled:opacity-50">Next Step →</button>
+                <button onClick={() => setStep(1)} className="px-6 py-3 border border-gray-300 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-gray-800 h-12 font-bold flex items-center justify-center">← Back</button>
+                <button disabled={!formData.location} onClick={() => setStep(3)} className="px-6 py-3 bg-navy text-white rounded hover:bg-gray-800 disabled:opacity-50 h-12 font-bold flex items-center justify-center">Next Step →</button>
               </div>
             </motion.div>
           )}
@@ -175,12 +181,12 @@ const ReportIncident = () => {
               <h2 className="text-2xl font-bold mb-6 text-navy dark:text-white">Review & AI Prediction</h2>
               
               <div className="bg-gray-50 dark:bg-navy p-6 rounded-lg mb-6 border border-gray-200 dark:border-gray-700">
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start mb-4 gap-4">
                   <div>
                     <h3 className="font-bold text-lg dark:text-white">{formData.title}</h3>
                     <p className="text-sm text-gray-500 capitalize">{formData.type} • {formData.address}</p>
                   </div>
-                  <button onClick={handlePredictSeverity} disabled={loadingAI} className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg flex items-center gap-2 hover:bg-purple-200 font-bold transition-colors">
+                  <button onClick={handlePredictSeverity} disabled={loadingAI} className="px-4 py-3 bg-purple-100 text-purple-700 rounded-lg flex items-center gap-2 hover:bg-purple-200 font-bold transition-colors h-12">
                     {loadingAI ? 'Analyzing...' : <>✨ Predict Severity with AI</>}
                   </button>
                 </div>
@@ -192,7 +198,7 @@ const ReportIncident = () => {
                   <div className="text-4xl">🤖</div>
                   <div>
                     <h4 className="font-bold text-purple-800 dark:text-purple-300 flex items-center gap-2">
-                      AI Analysis Result 
+                       AI Analysis Result 
                       <span className="text-xs bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full">{Math.round(aiPrediction.confidence)}% Confidence</span>
                     </h4>
                     <p className="text-sm text-purple-700 dark:text-purple-400 mt-1">{aiPrediction.reasoning}</p>
@@ -207,7 +213,7 @@ const ReportIncident = () => {
                     <button 
                       key={sev}
                       onClick={() => setFormData({...formData, severity: sev})}
-                      className={`flex-1 py-3 rounded border-2 font-bold uppercase tracking-wide transition-all ${
+                      className={`flex-1 py-3 rounded border-2 font-bold uppercase tracking-wide transition-all h-12 flex items-center justify-center ${
                         formData.severity === sev 
                           ? (sev==='high' ? 'border-primary bg-primary text-white' : sev==='medium' ? 'border-amber bg-amber text-white' : 'border-safe bg-safe text-white')
                           : 'border-gray-200 dark:border-gray-700 text-gray-500 hover:border-gray-400'
@@ -220,8 +226,8 @@ const ReportIncident = () => {
               </div>
 
               <div className="mt-8 flex justify-between">
-                <button onClick={() => setStep(2)} className="px-6 py-2 border border-gray-300 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-gray-800">← Back</button>
-                <button disabled={submitting} onClick={handleSubmit} className="px-8 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-dark transition-colors shadow-lg">
+                <button onClick={() => setStep(2)} className="px-6 py-3 border border-gray-300 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-gray-800 h-12 font-bold flex items-center justify-center">← Back</button>
+                <button disabled={submitting} onClick={handleSubmit} className="px-8 py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-dark transition-colors shadow-lg h-12 flex items-center justify-center">
                   {submitting ? 'Submitting...' : 'SUBMIT ALERT'}
                 </button>
               </div>
@@ -229,7 +235,7 @@ const ReportIncident = () => {
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </PageWrapper>
   );
 };
 

@@ -2,12 +2,13 @@ import React, { useState, useContext, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import GoogleLoginButton from '../components/GoogleLoginButton';
+import PageWrapper from '../components/PageWrapper';
 
 const PasswordEyeToggle = ({ show, onToggle }) => (
   <button
     type="button"
     onClick={onToggle}
-    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+    className="absolute right-2 top-1/2 flex min-h-[44px] min-w-[44px] -translate-y-1/2 items-center justify-center text-gray-400 hover:text-gray-600"
   >
     {show ? (
       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -51,8 +52,8 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-navy-light w-full max-w-md rounded-2xl shadow-2xl p-8 border border-gray-100 dark:border-gray-800">
+    <PageWrapper className="flex min-h-[calc(100vh-64px)] items-center justify-center overflow-x-hidden px-4 py-6 sm:p-6">
+      <div className="w-full max-w-md rounded-2xl border border-gray-100 bg-white p-5 shadow-2xl dark:border-gray-800 dark:bg-navy-light sm:p-8">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold text-navy dark:text-white">Create Account</h2>
           <p className="text-gray-500 mt-1">Join the SafeGuard community</p>
@@ -63,15 +64,15 @@ const Register = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
-            <input type="text" required value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-white focus:border-primary outline-none" placeholder="John Doe" />
+            <input type="text" required value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} className="w-full min-h-[44px] rounded-lg border border-gray-300 bg-transparent px-3 py-3 outline-none focus:border-primary dark:border-gray-600 dark:text-white" placeholder="John Doe" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-            <input type="email" required value={formData.email} onChange={e=>setFormData({...formData, email: e.target.value})} className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-white focus:border-primary outline-none" placeholder="you@example.com" />
+            <input type="email" required value={formData.email} onChange={e=>setFormData({...formData, email: e.target.value})} className="w-full min-h-[44px] rounded-lg border border-gray-300 bg-transparent px-3 py-3 outline-none focus:border-primary dark:border-gray-600 dark:text-white" placeholder="you@example.com" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone (Optional)</label>
-            <input type="tel" value={formData.phone} onChange={e=>setFormData({...formData, phone: e.target.value})} className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-white focus:border-primary outline-none" placeholder="+1 234 567 8900" />
+            <input type="tel" value={formData.phone} onChange={e=>setFormData({...formData, phone: e.target.value})} className="w-full min-h-[44px] rounded-lg border border-gray-300 bg-transparent px-3 py-3 outline-none focus:border-primary dark:border-gray-600 dark:text-white" placeholder="+1 234 567 8900" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
@@ -81,7 +82,7 @@ const Register = () => {
                 required
                 value={formData.password}
                 onChange={e=>setFormData({...formData, password: e.target.value})}
-                className="w-full p-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-white focus:border-primary outline-none"
+                className="w-full min-h-[44px] rounded-lg border border-gray-300 bg-transparent px-3 py-3 pr-12 outline-none focus:border-primary dark:border-gray-600 dark:text-white"
                 placeholder="••••••••"
               />
               <PasswordEyeToggle show={showPassword} onToggle={() => setShowPassword(!showPassword)} />
@@ -95,14 +96,14 @@ const Register = () => {
                 required
                 value={formData.confirmPassword}
                 onChange={e=>setFormData({...formData, confirmPassword: e.target.value})}
-                className="w-full p-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-white focus:border-primary outline-none"
+                className="w-full min-h-[44px] rounded-lg border border-gray-300 bg-transparent px-3 py-3 pr-12 outline-none focus:border-primary dark:border-gray-600 dark:text-white"
                 placeholder="••••••••"
               />
               <PasswordEyeToggle show={showConfirmPassword} onToggle={() => setShowConfirmPassword(!showConfirmPassword)} />
             </div>
           </div>
           
-          <button type="submit" disabled={loading} className="w-full py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark transition-colors disabled:opacity-70 mt-6">
+          <button type="submit" disabled={loading} className="mt-6 w-full min-h-[44px] rounded-lg bg-primary px-4 py-3 font-bold text-white transition-colors hover:bg-primary-dark disabled:opacity-70">
             {loading ? 'Creating Account...' : 'Sign Up'}
           </button>
         </form>
@@ -113,7 +114,7 @@ const Register = () => {
           Already have an account? <Link to="/login" className="text-primary font-bold hover:underline">Sign in</Link>
         </p>
       </div>
-    </div>
+    </PageWrapper>
   );
 };
 

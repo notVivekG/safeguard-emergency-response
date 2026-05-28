@@ -6,10 +6,16 @@ import IncidentCard from './IncidentCard';
 import SkeletonLoader from './SkeletonLoader';
 import { Link } from 'react-router-dom';
 
-const LiveIncidentFeed = () => {
-  const [incidents, setIncidents] = useState([]);
-  const [loading, setLoading] = useState(true);
+const LiveIncidentFeed = ({ incidents: propIncidents, loading: propLoading }) => {
+  const [internalIncidents, setInternalIncidents] = useState([]);
+  const [internalLoading, setInternalLoading] = useState(true);
   const { socket } = useContext(SocketContext);
+
+  const incidents = propIncidents !== undefined ? propIncidents.slice(0, 5) : internalIncidents;
+  const loading = propLoading !== undefined ? propLoading : internalLoading;
+
+  const setIncidents = setInternalIncidents;
+  const setLoading = setInternalLoading;
 
   useEffect(() => {
     fetchIncidents();
