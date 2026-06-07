@@ -20,6 +20,9 @@ export const SocketProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    if (connected && user?._id) {
+      socket.emit('join:user', user._id);
+    }
     if (connected && user?.role === 'admin') {
       socket.emit('join:admin');
     }

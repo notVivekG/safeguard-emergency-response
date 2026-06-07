@@ -9,6 +9,11 @@ export default function setupSocketHandlers(io) {
       console.log(`Socket ${socket.id} joined admin_room`);
     });
 
+    socket.on('join:user', (userId) => {
+      socket.join(`user_${userId}`);
+      console.log(`Socket ${socket.id} joined user_${userId}`);
+    });
+
     socket.on('join:incident', (incidentId) => {
       socket.join(`incident_${incidentId}`);
       console.log(`Socket ${socket.id} joined incident_${incidentId}`);

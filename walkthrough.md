@@ -1,72 +1,52 @@
-# Frontend Polish Walkthrough
+# SafeGuard Emergency Response Platform Walkthrough
 
-## `client/src/components/PageWrapper.jsx`
-- Added a reusable Framer Motion page-transition wrapper using `AnimatePresence` + `motion.div`.
-- Standardized subtle fade/slide transitions across route pages.
+This document highlights all major implementations and polish updates completed across the codebase.
 
-## `client/src/pages/Login.jsx`
-- Improved mobile responsiveness with safer container spacing and overflow handling.
-- Ensured touch targets meet `min-h-[44px]` for inputs/buttons and forgot-password modal actions.
-- Wrapped the page with `PageWrapper`.
+---
 
-## `client/src/pages/Register.jsx`
-- Improved mobile spacing and layout for small viewports.
-- Applied `min-h-[44px]` touch targets to form controls and action buttons.
-- Wrapped the page with `PageWrapper`.
+## 🚀 Key Implementations
 
-## `client/src/pages/About.jsx`
-- Reworked layout sections to scale cleanly from mobile to desktop.
-- Added responsive spacing and card layout improvements.
-- Wrapped the page with `PageWrapper`.
+### 1. Volunteer Approval Flow (Task 2)
+- **Volunteer Model (`server/models/Volunteer.js`)**: Updated `status` to represent approval flow (`'pending'`, `'approved'`, `'rejected'`) and added `activityStatus` for active operational states (`'available'`, `'en-route'`, `'on-site'`). Added settings fields: `preferredContact`, `emergencyContactName`, `emergencyContactPhone`, and `bio`.
+- **Sockets (`server/socket/socketHandlers.js` & `client/src/context/SocketContext.jsx`)**: Connected every client to a unique, targeted socket room (`user_${userId}`). Real-time approval/rejection socket triggers immediately update client state.
+- **Admin Panel (`client/src/pages/Admin.jsx` & `server/routes/admin.js`)**: Built the "Volunteers" tab table displaying pending applicants, skills, availability, and actions. Included approve/reject route calls that automatically trigger role change triggers, user role updates, and toast notifications.
+- **Dashboard Banner (`client/src/pages/Dashboard.jsx`)**: Displays clear, color-coded status alerts (yellow for pending, red for rejected) for volunteer applicants. Approved applicants automatically see active dispatch status controls.
 
-## `client/src/pages/Home.jsx`
-- Replaced direct page-level motion wrapper with shared `PageWrapper`.
-- Added overflow protection on the page container to avoid horizontal scroll.
+### 2. Volunteer Settings Form (Task 3)
+- **Form Interface (`client/src/pages/Dashboard.jsx`)**: Built a fully responsive and dark-mode-compatible settings form with availability toggle, interactive skills tag selector, contact preferences dropdown, emergency contact text inputs, and description field with character constraints.
+- **Save Updates (`server/routes/volunteers.js`)**: Implemented settings retrieval (`GET /volunteers/me`) and database updates (`PATCH /volunteers/:id`).
 
-## `client/src/pages/LiveMap.jsx`
-- Replaced direct page-level motion wrapper with shared `PageWrapper`.
+### 3. Nearby Incidents Dashboard Tab (Task 6)
+- **Tab Panel (`client/src/pages/Dashboard.jsx` & `server/controllers/incidentController.js`)**: Integrated Geolocation API on tab selection. Sends proximity query to `GET /api/v1/incidents?lat=X&lng=Y&radius=10` to get incidents within 10km.
+- **Visuals (`client/src/components/MapView.jsx` & `client/src/components/IncidentCard.jsx`)**: Centered map view on the user location and plotted nearby active incidents alongside an interactive list. Included loading skeletons and error states for location permission blocks.
 
-## `client/src/pages/ReportIncident.jsx`
-- Replaced direct page-level motion wrapper with shared `PageWrapper`.
-- Applied wrapper to both success and form states for consistent transitions.
+### 4. Heatmap View Adjustments (Task 5)
+- **MapView (`client/src/components/MapView.jsx`)**: Updated Leaflet Heatmap layer to calculate heat point intensity according to incident severity level (`critical` = 1.0, `high` = 0.7, `medium` = 0.4, `low` = 0.2). Wired MapContainer ref hook and enabled rendering marker pins directly over the heat layer.
 
-## `client/src/pages/Alerts.jsx`
-- Replaced direct page wrapper motion with shared `PageWrapper`.
-- Added staggered card entrance animation for incident cards.
-- Updated report CTA to a mobile-friendly touch target.
+### 5. Layout & styling fixes (Task 1)
+- **Dropdown Visibility (`client/src/pages/Dashboard.jsx`)**: Explicitly styled the volunteer status select and option elements with `text-gray-900 dark:text-white` to resolve white-on-white text issues.
 
-## `client/src/pages/Dashboard.jsx`
-- Added shared `PageWrapper` transition wrapper.
-- Added staggered entrance animation for report cards and volunteer status cards.
-- Improved tab/action touch targets for mobile ergonomics.
+---
 
-## `client/src/pages/Admin.jsx`
-- Added shared `PageWrapper` transition wrapper.
-- Added staggered entrance animation for overview stat cards.
-- Expanded skeleton coverage for loading states:
-  - Overview stats skeleton.
-  - Incidents skeleton (existing retained).
-  - Users skeleton (existing retained).
-  - Broadcast history skeleton.
-  - Export tab preload skeleton.
-- Improved form/button touch targets in tab content.
+## 📁 Modified Files
 
-## `client/src/pages/Resources.jsx`
-- Rebuilt from scratch with a new responsive and dark-mode-compatible layout.
-- Added hero with client-side search filtering.
-- Implemented category sections:
-  - Natural Disasters
-  - Medical Emergencies
-  - Fire Safety
-  - Evacuation Planning
-- Added accordion-style collapsible tip sections per category.
-- Added emergency contact cards with direct `tel:` links:
-  - Police `100`
-  - Ambulance `102`
-  - Fire `101`
-  - Disaster Helpline `108`
-- Added "Download Emergency PDF" button linking to an external disaster resource.
+### Backend (server)
+- [Volunteer.js](file:///c:/Desktop%20material/Disaster%20Alert%20System/server/models/Volunteer.js): Added approval status, activityStatus, and settings fields.
+- [adminController.js](file:///c:/Desktop%20material/Disaster%20Alert%20System/server/controllers/adminController.js): Implemented admin volunteer listing, approval, rejection, and updated active stats count.
+- [admin.js](file:///c:/Desktop%20material/Disaster%20Alert%20System/server/routes/admin.js): Registered volunteer admin routes.
+- [volunteerController.js](file:///c:/Desktop%20material/Disaster%20Alert%20System/server/controllers/volunteerController.js): Adapted volunteer registration, status update, and settings PATCH controller.
+- [volunteers.js](file:///c:/Desktop%20material/Disaster%20Alert%20System/server/routes/volunteers.js): Registered `/me` and patch endpoints.
+- [socketHandlers.js](file:///c:/Desktop%20material/Disaster%20Alert%20System/server/socket/socketHandlers.js): Added `join:user` socket join event.
+- [incidentController.js](file:///c:/Desktop%20material/Disaster%20Alert%20System/server/controllers/incidentController.js): Extended incident search to handle lat/lng proximity filters.
 
-## `client/src/pages/NotFound.jsx`
-- Wrapped page with `PageWrapper`.
-- Improved CTA button touch target sizing for mobile.
+### Frontend (client)
+- [SocketContext.jsx](file:///c:/Desktop%20material/Disaster%20Alert%20System/client/src/context/SocketContext.jsx): Joined client to private user socket room.
+- [Dashboard.jsx](file:///c:/Desktop%20material/Disaster%20Alert%20System/client/src/pages/Dashboard.jsx): Rebuilt settings tab, nearby incidents tab, volunteer status alert banners, and fixed dropdown color bug.
+- [Admin.jsx](file:///c:/Desktop%20material/Disaster%20Alert%20System/client/src/pages/Admin.jsx): Created Volunteers table tab, toast notification popups, and removed duplicate imports.
+- [MapView.jsx](file:///c:/Desktop%20material/Disaster%20Alert%20System/client/src/components/MapView.jsx): Implemented leaflet-heat intensity severity mapping and mapRef container binding.
+- [Resources.jsx](file:///c:/Desktop%20material/Disaster%20Alert%20System/client/src/pages/Resources.jsx): Corrected multiline JSX comment syntax.
+
+---
+
+## 🔍 Build Verification
+- Built package via `npm run build` from the `client/` directory. Resulted in 0 build errors.

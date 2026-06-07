@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import api from '../services/api';
 import PageWrapper from '../components/PageWrapper';
+import Toast from '../components/Toast';
 
 // ── Shared table styles ────────────────────────────────────────────
 const thCls = 'px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider';
@@ -408,33 +409,159 @@ const ExportTab = () => {
   );
 };
 
+// ── Volunteers Tab ────────────────────────────────────────────────
+const VolunteersTab = () => {
+  const [volunteers, setVolunteers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  useEffect(() => {
+    api.get('/admin/volunteers')
+      .then(res => {
+        setVolunteers(res.data || []);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleApprove = async (id) => {
+    try {
+      await api.patch(`/admin/volunteers/${id}/approve`);
+      setVolunteers(prev => prev.map(v => v._id === id ? { ...v, status: 'approved' } : v));
+      setToast({ show: true, message: 'Volunteer approved successfully!', type: 'success' });
+    } catch (e) {
+      setToast({ show: true, message: e.response?.data?.message || 'Approval failed', type: 'error' });
+    }
+  };
+
+  const handleReject = async (id) => {
+    try {
+      await api.patch(`/admin/volunteers/${id}/reject`);
+      setVolunteers(prev => prev.map(v => v._id === id ? { ...v, status: 'rejected' } : v));
+      setToast({ show: true, message: 'Volunteer application rejected.', type: 'success' });
+    } catch (e) {
+      setToast({ show: true, message: e.response?.data?.message || 'Rejection failed', type: 'error' });
+    }
+  };
+
+  const statusColors = {
+    pending: 'bg-yellow-100 text-yellow-850 dark:bg-yellow-950/20 dark:text-yellow-400',
+    approved: 'bg-green-100 text-green-850 dark:bg-green-950/20 dark:text-green-400',
+    rejected: 'bg-red-100 text-red-850 dark:bg-red-950/20 dark:text-red-400'
+  };
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold text-navy dark:text-white mb-4">Volunteer Applications</h2>
+      {toast.show && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast({ show: false, message: '', type: 'success' })} />
+      )}
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+          ))}
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-navy">
+              <tr>
+                {['Name', 'Email', 'Skills', 'Availability', 'Status', 'Actions'].map(h => (
+                  <th key={h} className={thCls}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-navy-light divide-y divide-gray-100 dark:divide-gray-800">
+              {volunteers.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-8 text-gray-400">No volunteer applications found</td></tr>
+              ) : volunteers.map(v => (
+                <tr key={v._id} className="hover:bg-gray-50 dark:hover:bg-navy transition-colors">
+                  <td className={`${tdCls} font-medium`}>{v.user?.name || '—'}</td>
+                  <td className={tdCls}>{v.user?.email || '—'}</td>
+                  <td className={tdCls}>
+                    <div className="flex flex-wrap gap-1 max-w-[200px]">
+                      {v.skills && v.skills.length > 0 ? v.skills.map((s, idx) => (
+                        <span key={idx} className="px-2 py-0.5 bg-gray-100 dark:bg-navy text-gray-800 dark:text-gray-200 text-xs rounded font-semibold">
+                          {s}
+                        </span>
+                      )) : '—'}
+                    </div>
+                  </td>
+                  <td className={tdCls}>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${v.availability ? 'bg-green-100 text-green-800 dark:bg-green-950/20 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-950/20 dark:text-red-400'}`}>
+                      {v.availability ? 'Available' : 'Unavailable'}
+                    </span>
+                  </td>
+                  <td className={tdCls}>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${statusColors[v.status] || 'bg-gray-100 text-gray-850'}`}>
+                      {v.status}
+                    </span>
+                  </td>
+                  <td className={tdCls}>
+                    {v.status === 'pending' ? (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleApprove(v._id)}
+                          className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-bold transition-colors"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleReject(v._id)}
+                          className="px-3 py-1.5 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-bold transition-colors"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400 capitalize">{v.status}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Main Admin Page ───────────────────────────────────────────────
 const Admin = () => {
   const [stats, setStats] = useState(null);
-  const [statsLoading, setStatsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [showSidebar, setShowSidebar] = useState(false);
 
   useEffect(() => { document.title = 'Admin Panel — SafeGuard'; }, []);
 
   useEffect(() => {
-    api.get('/admin/stats')
-      .then(res => setStats(res.data))
-      .catch(console.error)
-      .finally(() => setStatsLoading(false));
+    api.get('/admin/stats').then(res => setStats(res.data)).catch(console.error);
   }, []);
 
   const tabs = [
-    { id: 'overview',  icon: '📊', label: 'Overview' },
-    { id: 'incidents', icon: '🚨', label: 'Incidents' },
-    { id: 'users',     icon: '👥', label: 'Users' },
-    { id: 'broadcast', icon: '📢', label: 'Broadcast' },
-    { id: 'export',    icon: '⬇️', label: 'Export' },
+    { id: 'overview',   icon: '📊', label: 'Overview' },
+    { id: 'incidents',  icon: '🚨', label: 'Incidents' },
+    { id: 'users',      icon: '👥', label: 'Users' },
+    { id: 'volunteers', icon: '🤝', label: 'Volunteers' },
+    { id: 'broadcast',  icon: '📢', label: 'Broadcast' },
+    { id: 'export',     icon: '⬇️', label: 'Export' },
   ];
 
   return (
-    <PageWrapper className="mx-auto flex h-[calc(100vh-64px)] max-w-7xl gap-6 overflow-hidden px-4 py-8 sm:px-6 lg:px-8">
+    <PageWrapper className="flex min-h-[calc(100vh-64px)] overflow-hidden">
+      {/* Mobile toggle button */}
+      <button
+        className="md:hidden absolute top-4 left-4 z-20 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full bg-primary text-white shadow-lg"
+        onClick={() => setShowSidebar(!showSidebar)}
+        aria-label="Toggle sidebar"
+      >
+        {showSidebar ? '✕' : '☰'}
+      </button>
+
       {/* Sidebar */}
-      <div className="w-56 bg-navy text-white rounded-xl shadow-lg p-4 flex flex-col shrink-0">
+      <div className={`${showSidebar ? 'block' : 'hidden'} md:block w-56 bg-navy text-white rounded-xl shadow-lg p-4 flex flex-col shrink-0`}>
         <h2 className="font-bold text-lg mb-6 flex items-center gap-2 px-2">
           <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
@@ -445,10 +572,11 @@ const Admin = () => {
           {tabs.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex min-h-[44px] items-center gap-2 rounded-lg px-4 py-2.5 text-left text-sm font-medium transition-colors ${
-                activeTab === tab.id ? 'bg-primary text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-              }`}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setShowSidebar(false);
+              }}
+              className={`text-left px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm ${activeTab === tab.id ? 'bg-primary text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}
             >
               <span>{tab.icon}</span> {tab.label}
             </button>
@@ -464,11 +592,12 @@ const Admin = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.15 }}
         >
-          {activeTab === 'overview'  && <OverviewTab stats={stats} statsLoading={statsLoading} />}
+          {activeTab === 'overview' && <OverviewTab stats={stats} />}
           {activeTab === 'incidents' && <IncidentsTab />}
-          {activeTab === 'users'     && <UsersTab />}
+          {activeTab === 'users' && <UsersTab />}
+          {activeTab === 'volunteers' && <VolunteersTab />}
           {activeTab === 'broadcast' && <BroadcastTab />}
-          {activeTab === 'export'    && <ExportTab />}
+          {activeTab === 'export' && <ExportTab />}
         </motion.div>
       </div>
     </PageWrapper>

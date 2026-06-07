@@ -34,17 +34,34 @@ export const createIncident = async (req, res) => {
 
 export const getAllIncidents = async (req, res) => {
   try {
-    const { type, severity, status } = req.query;
+    const { type, severity, status, lat, lng, radius } = req.query;
     let query = {};
     
     if (type) query.type = type;
     if (severity) query.severity = severity;
     if (status) query.status = status;
 
-    const incidents = await Incident.find(query)
-      .populate('reportedBy', 'name email')
-      .sort({ createdAt: -1 });
-      
+    if (lat && lng) {
+      // radius in query is in km, convert to meters (default 10km if not provided)
+      const radMeters = radius ? parseFloat(radius) * 1000 : 10000;
+      query.location = {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [parseFloat(lng), parseFloat(lat)]
+          },
+          $maxDistance: radMeters
+        }
+      };
+    }
+
+    let queryBuilder = Incident.find(query).populate('reportedBy', 'name email');
+    
+    if (!lat || !lng) {
+      queryBuilder = queryBuilder.sort({ createdAt: -1 });
+    }
+
+    const incidents = await queryBuilder;
     res.json(incidents);
   } catch (error) {
     res.status(500).json({ message: error.message });

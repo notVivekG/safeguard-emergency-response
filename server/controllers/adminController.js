@@ -10,7 +10,7 @@ export const getDashboardStats = async (req, res) => {
     const activeIncidents = await Incident.countDocuments({ status: 'active' });
     const resolvedIncidents = await Incident.countDocuments({ status: 'resolved' });
     const totalUsers = await User.countDocuments();
-    const activeVolunteers = await Volunteer.countDocuments({ status: 'available' });
+    const activeVolunteers = await Volunteer.countDocuments({ status: 'approved', activityStatus: 'available' });
 
     res.json({
       totalIncidents,
@@ -91,6 +91,57 @@ export const exportIncidentsCSV = async (req, res) => {
     res.header('Content-Type', 'text/csv');
     res.attachment('incidents.csv');
     return res.send(csv);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const getAllVolunteersAdmin = async (req, res) => {
+  try {
+    const volunteers = await Volunteer.find().populate('user', 'name email phone');
+    res.json(volunteers);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const approveVolunteer = async (req, res) => {
+  try {
+    const volunteer = await Volunteer.findById(req.params.id);
+    if (!volunteer) {
+      return res.status(404).json({ message: 'Volunteer application not found' });
+    }
+    volunteer.status = 'approved';
+    await volunteer.save();
+
+    await User.findByIdAndUpdate(volunteer.user, { role: 'volunteer' });
+
+    // Emit socket events
+    req.io.to(`user_${volunteer.user}`).emit('volunteer:statusUpdated', { status: 'approved' });
+    req.io.emit('user:roleUpdated', { userId: volunteer.user, role: 'volunteer' });
+
+    res.json(volunteer);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const rejectVolunteer = async (req, res) => {
+  try {
+    const volunteer = await Volunteer.findById(req.params.id);
+    if (!volunteer) {
+      return res.status(404).json({ message: 'Volunteer application not found' });
+    }
+    volunteer.status = 'rejected';
+    await volunteer.save();
+
+    await User.findByIdAndUpdate(volunteer.user, { role: 'user' });
+
+    // Emit socket events
+    req.io.to(`user_${volunteer.user}`).emit('volunteer:statusUpdated', { status: 'rejected' });
+    req.io.emit('user:roleUpdated', { userId: volunteer.user, role: 'user' });
+
+    res.json(volunteer);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

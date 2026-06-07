@@ -1,192 +1,269 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import PageWrapper from '../components/PageWrapper';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 
-const categories = [
+// Page animation variants
+const pageVariants = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -20 },
+};
+const pageTransition = { duration: 0.3, ease: 'easeInOut' };
+
+// Resource data
+const resources = [
   {
-    id: 'natural-disasters',
-    title: 'Natural Disasters',
-    icon: '🌪️',
-    sections: [
-      { title: 'Flood Preparedness', tips: ['Move to higher ground early.', 'Avoid walking or driving through floodwater.', 'Keep clean drinking water and dry food ready.'] },
-      { title: 'Earthquake Response', tips: ['Drop, cover, and hold on until shaking stops.', 'Stay away from glass and heavy shelves.', 'After tremors, check gas and electrical hazards.'] },
-      { title: 'Cyclone Safety', tips: ['Secure doors, windows, and outdoor loose objects.', 'Keep torch, batteries, and power banks charged.', 'Follow evacuation orders immediately.'] }
-    ]
-  },
-  {
-    id: 'medical-emergencies',
-    title: 'Medical Emergencies',
-    icon: '🩺',
-    sections: [
-      { title: 'Immediate First Response', tips: ['Check scene safety before helping.', 'Call `102` and share clear location details.', 'Do not move victims with spinal injury suspicion.'] },
-      { title: 'Bleeding and Burns', tips: ['Apply clean pressure to control bleeding.', 'Cool burns under running water for 20 minutes.', 'Do not apply toothpaste or home remedies on burns.'] },
-      { title: 'CPR Basics', tips: ['Start chest compressions if no pulse or breathing.', 'Keep rhythm around 100-120 compressions/min.', 'Continue until trained help arrives.'] }
-    ]
-  },
-  {
-    id: 'fire-safety',
-    title: 'Fire Safety',
+    id: 1,
     icon: '🔥',
-    sections: [
-      { title: 'Evacuate Quickly', tips: ['Raise alarm and call `101`.', 'Use stairs, never elevators.', 'Stay low to avoid smoke inhalation.'] },
-      { title: 'Kitchen Fire', tips: ['Turn off gas/electric source if safe.', 'Use lid or fire blanket for oil fires.', 'Never pour water on grease fire.'] },
-      { title: 'Post-Fire Safety', tips: ['Do not re-enter before official clearance.', 'Check for hidden embers and hot surfaces.', 'Get medical help for smoke exposure.'] }
-    ]
+    category: 'Fire Safety',
+    title: 'Fire Emergency Guide',
+    description: 'Learn how to respond to fire emergencies, evacuation procedures, and fire prevention tips.',
+    tips: [
+      'Activate the nearest fire alarm immediately',
+      'Call emergency services: 101',
+      'Evacuate using stairs, never use elevators',
+      'Stay low to avoid smoke inhalation',
+      'Meet at designated assembly point',
+    ],
+    color: 'orange',
   },
   {
-    id: 'evacuation-planning',
-    title: 'Evacuation Planning',
-    icon: '🧭',
-    sections: [
-      { title: 'Family Evacuation Plan', tips: ['Choose two safe meeting points.', 'Assign responsibilities to each member.', 'Practice route drills every month.'] },
-      { title: 'Emergency Go-Bag', tips: ['Carry IDs, basic medicines, and phone charger.', 'Pack water, dry snacks, and flashlight.', 'Include child and elderly specific essentials.'] },
-      { title: 'Pet and Accessibility Needs', tips: ['Keep pet carriers, food, and records ready.', 'Prepare mobility aids and backup batteries.', 'Share special needs with local responders.'] }
-    ]
-  }
+    id: 2,
+    icon: '🌊',
+    category: 'Flood Safety',
+    title: 'Flood Preparedness Guide',
+    description: 'Essential steps to take before, during and after a flood to keep yourself and family safe.',
+    tips: [
+      'Move to higher ground immediately',
+      'Do not walk in moving water',
+      'Disconnect electrical appliances',
+      'Keep emergency kit ready',
+      'Follow local authority instructions',
+    ],
+    color: 'blue',
+  },
+  {
+    id: 3,
+    icon: '🏔️',
+    category: 'Earthquake Safety',
+    title: 'Earthquake Response Guide',
+    description: 'What to do during and after an earthquake to minimize injury and stay safe.',
+    tips: [
+      'Drop, Cover, and Hold On',
+      'Stay away from windows and heavy furniture',
+      'If outdoors move away from buildings',
+      'After shaking stops check for injuries',
+      'Expect aftershocks',
+    ],
+    color: 'yellow',
+  },
+  {
+    id: 4,
+    icon: '🎒',
+    category: 'Emergency Kit',
+    title: 'Emergency Kit Checklist',
+    description: 'Essential items every household should have ready for any emergency situation.',
+    tips: [
+      'Water: 1 gallon per person per day for 3 days',
+      'Non-perishable food for 3 days',
+      'First aid kit and medications',
+      'Flashlight, batteries and radio',
+      'Important documents in waterproof bag',
+    ],
+    color: 'green',
+  },
+  {
+    id: 5,
+    icon: '🚑',
+    category: 'First Aid',
+    title: 'Basic First Aid Guide',
+    description: 'Critical first aid techniques everyone should know to help in emergency situations.',
+    tips: [
+      'Check for danger before approaching',
+      'Call 102 for ambulance immediately',
+      'Apply pressure to stop bleeding',
+      'Do not move injured person unless necessary',
+      'Learn CPR — it saves lives',
+    ],
+    color: 'red',
+  },
+  {
+    id: 6,
+    icon: '📱',
+    category: 'Emergency Contacts',
+    title: 'Important Emergency Numbers',
+    description: 'Key emergency contact numbers to save on your phone right now.',
+    tips: [
+      'Police: 100',
+      'Ambulance: 102',
+      'Fire Brigade: 101',
+      'Disaster Helpline: 1133',
+      'National Emergency: 112',
+    ],
+    color: 'purple',
+  },
 ];
 
-const emergencyContacts = [
-  { name: 'Police', number: '100', icon: '👮' },
-  { name: 'Ambulance', number: '102', icon: '🚑' },
-  { name: 'Fire', number: '101', icon: '🚒' },
-  { name: 'Disaster Helpline', number: '108', icon: '🆘' }
+const emergencyNumbers = [
+  { name: 'Police', number: '100', icon: '👮', color: 'blue' },
+  { name: 'Ambulance', number: '102', icon: '🚑', color: 'red' },
+  { name: 'Fire Brigade', number: '101', icon: '🚒', color: 'orange' },
+  { name: 'Disaster Helpline', number: '1133', icon: '🆘', color: 'purple' },
+  { name: 'National Emergency', number: '112', icon: '📞', color: 'green' },
 ];
+
+// Tailwind color mapping
+const colorMap = {
+  orange: {
+    bg: 'bg-orange-100 dark:bg-orange-900/20',
+    text: 'text-orange-600 dark:text-orange-400',
+    border: 'border-orange-200 dark:border-orange-800',
+    badge: 'bg-orange-100 text-orange-700',
+  },
+  blue: {
+    bg: 'bg-blue-100 dark:bg-blue-900/20',
+    text: 'text-blue-600 dark:text-blue-400',
+    border: 'border-blue-200 dark:border-blue-800',
+    badge: 'bg-blue-100 text-blue-700',
+  },
+  yellow: {
+    bg: 'bg-yellow-100 dark:bg-yellow-900/20',
+    text: 'text-yellow-600 dark:text-yellow-400',
+    border: 'border-yellow-200 dark:border-yellow-800',
+    badge: 'bg-yellow-100 text-yellow-700',
+  },
+  green: {
+    bg: 'bg-green-100 dark:bg-green-900/20',
+    text: 'text-green-600 dark:text-green-400',
+    border: 'border-green-200 dark:border-green-800',
+    badge: 'bg-green-100 text-green-700',
+  },
+  red: {
+    bg: 'bg-red-100 dark:bg-red-900/20',
+    text: 'text-red-600 dark:text-red-400',
+    border: 'border-red-200 dark:border-red-800',
+    badge: 'bg-red-100 text-red-700',
+  },
+  purple: {
+    bg: 'bg-purple-100 dark:bg-purple-900/20',
+    text: 'text-purple-600 dark:text-purple-400',
+    border: 'border-purple-200 dark:border-purple-800',
+    badge: 'bg-purple-100 text-purple-700',
+  },
+};
 
 const Resources = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [openSections, setOpenSections] = useState({});
+  const [expandedId, setExpandedId] = useState(null);
 
   useEffect(() => {
     document.title = 'Resources — SafeGuard';
   }, []);
 
-  const filteredCategories = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    if (!query) return categories;
-    return categories
-      .map((category) => ({
-        ...category,
-        sections: category.sections.filter((section) =>
-          `${section.title} ${section.tips.join(' ')}`.toLowerCase().includes(query)
-        )
-      }))
-      .filter((category) => category.title.toLowerCase().includes(query) || category.sections.length > 0);
-  }, [searchTerm]);
+  const filteredResources = resources.filter((r) =>
+    r.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const toggleSection = (key) => {
-    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  const handleDownload = () => {
+    window.print();
   };
 
   return (
-    <PageWrapper className="overflow-x-hidden">
-      <section className="bg-navy px-4 py-14 text-white dark:bg-[#071124] sm:px-6 sm:py-16">
-        <div className="mx-auto max-w-4xl text-center">
-          <h1 className="text-3xl font-extrabold sm:text-4xl lg:text-5xl">Emergency Resources Hub</h1>
-          <p className="mt-4 text-sm text-gray-300 sm:text-base">
-            Search preparedness guides and open each section to view actionable safety tips.
+    <motion.div
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={pageTransition}
+    >
+      {/* HERO SECTION */}
+      <section className="bg-[#0a192f] text-white py-16 md:py-20">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h1 className="text-4xl md:text-5xl font-extrabold">Emergency Resources &amp; Safety Guides</h1>
+          <p className="text-gray-300 mt-4 text-lg">
+            Essential guides, emergency contacts, and safety tips to keep you and your family prepared.
           </p>
-          <div className="relative mx-auto mt-7 w-full max-w-2xl">
+          {/* Search Bar */}
+          <div className="mt-8 max-w-xl mx-auto">
             <input
               type="text"
+              placeholder="Search resources..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search topics like flood, first aid, evacuation..."
-              className="w-full min-h-[44px] rounded-xl border border-white/20 bg-white/10 px-4 py-3 text-sm text-white placeholder:text-gray-300 outline-none backdrop-blur focus:ring-2 focus:ring-primary sm:text-base"
+              className="w-full rounded-xl bg-white/10 backdrop-blur px-4 py-3 text-white placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-12">
-        {filteredCategories.length === 0 ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-8 text-center dark:border-gray-800 dark:bg-navy-light">
-            <p className="text-lg font-semibold text-navy dark:text-white">No matching resources found.</p>
-            <p className="mt-2 text-sm text-gray-500">Try a broader keyword such as `fire`, `medical`, or `evacuation`.</p>
-          </div>
+      {/* RESOURCE CARDS GRID */}
+      <section className="max-w-7xl mx-auto px-4 py-12">
+        {filteredResources.length === 0 ? (
+          <p className="text-center text-gray-600 dark:text-gray-300">No resources match your search.</p>
         ) : (
-          <div className="space-y-6">
-            {filteredCategories.map((category) => (
-              <div key={category.id} className="rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-navy-light">
-                <div className="flex items-center gap-3 border-b border-gray-100 px-5 py-4 dark:border-gray-800 sm:px-6">
-                  <span className="text-2xl" aria-hidden="true">{category.icon}</span>
-                  <h2 className="text-xl font-bold text-navy dark:text-white">{category.title}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredResources.map((res, index) => (
+              <motion.div
+                key={res.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1, duration: 0.3 }}
+                className="bg-white dark:bg-navy-light rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 overflow-hidden hover:shadow-xl transition-shadow"
+              >
+                {/* Top colored bar */}
+                <div className={`${colorMap[res.color].bg} h-1.5 w-full`}></div>
+                <div className="p-6">
+                  <div className={`w-14 h-14 rounded-xl flex items-center justify-center ${colorMap[res.color].bg} text-2xl mb-4`}>{res.icon}</div>
+                  <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${colorMap[res.color].badge} mb-2`}>{res.category}</span>
+                  <h3 className="text-xl font-bold text-navy dark:text-white mb-2">{res.title}</h3>
+                  <p className="text-gray-500 text-sm mb-4">{res.description}</p>
+                  <button
+                    onClick={() => setExpandedId(expandedId === res.id ? null : res.id)}
+                    className="text-primary hover:underline mb-2"
+                  >
+                    {expandedId === res.id ? 'Hide Tips' : 'View Tips'}
+                  </button>
+                  {expandedId === res.id && (
+                    <ul className="list-disc list-inside space-y-1 mb-4 text-sm text-gray-600">
+                      {res.tips.map((tip, i) => (
+                        <li key={i}>✔️ {tip}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <button
+                    onClick={handleDownload}
+                    className="inline-flex items-center px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                  >
+                    Download as PDF
+                  </button>
                 </div>
-                <div className="space-y-3 p-4 sm:p-6">
-                  {category.sections.map((section, index) => {
-                    const sectionKey = `${category.id}-${index}`;
-                    const isOpen = !!openSections[sectionKey];
-                    return (
-                      <div key={sectionKey} className="rounded-xl border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-[#0b1427]">
-                        <button
-                          type="button"
-                          onClick={() => toggleSection(sectionKey)}
-                          className="flex min-h-[44px] w-full items-center justify-between gap-3 px-4 py-3 text-left"
-                        >
-                          <span className="font-semibold text-navy dark:text-white">{section.title}</span>
-                          <span className="text-lg text-gray-500 dark:text-gray-300">{isOpen ? '−' : '+'}</span>
-                        </button>
-                        <AnimatePresence initial={false}>
-                          {isOpen && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              exit={{ opacity: 0, height: 0 }}
-                              className="overflow-hidden border-t border-gray-200 dark:border-gray-700"
-                            >
-                              <ul className="space-y-2 px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                                {section.tips.map((tip) => (
-                                  <li key={tip} className="flex items-start gap-2">
-                                    <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
-                                    <span>{tip}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
       </section>
 
-      <section className="border-y border-gray-200 bg-gray-50 px-4 py-10 dark:border-gray-800 dark:bg-[#050b19] sm:px-6">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-            <div>
-              <h3 className="text-2xl font-bold text-navy dark:text-white">Emergency Contact Numbers</h3>
-              <p className="mt-1 text-sm text-gray-500">Tap any card to place a call instantly.</p>
-            </div>
-            <a
-              href="https://www.ndma.gov.in/"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-primary px-5 py-3 text-sm font-bold text-white hover:bg-primary-dark"
-            >
-              Download Emergency PDF
-            </a>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {emergencyContacts.map((contact) => (
-              <a
-                key={contact.number}
-                href={`tel:${contact.number}`}
-                className="block rounded-xl border border-gray-200 bg-white p-5 transition hover:shadow-md dark:border-gray-700 dark:bg-navy-light"
+      {/* EMERGENCY CONTACTS SECTION */}
+      <section className="bg-[#0a192f] text-white py-16">
+        <div className="max-w-5xl mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold mb-2">Emergency Contact Numbers</h2>
+          <p className="text-gray-400 mb-10">Save these numbers — they could save a life</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+            {emergencyNumbers.map((item) => (
+              <div
+                key={item.name}
+                className="bg-white/5 backdrop-blur border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors"
               >
-                <p className="text-2xl" aria-hidden="true">{contact.icon}</p>
-                <p className="mt-2 text-sm font-semibold text-gray-500">{contact.name}</p>
-                <p className="mt-1 text-3xl font-extrabold text-primary">{contact.number}</p>
-                <p className="mt-1 text-xs text-gray-500">Tap to call</p>
-              </a>
+                <div className="text-4xl mb-3">{item.icon}</div>
+                <h3 className="font-bold text-lg mb-2">{item.name}</h3>
+                <a href={`tel:${item.number}`} className={`text-3xl font-extrabold ${colorMap[item.color].text}`}>{item.number}</a>
+                <p className="text-xs text-gray-400 mt-2">Tap to Call</p>
+              </div>
             ))}
           </div>
         </div>
       </section>
-    </PageWrapper>
+    </motion.div>
   );
 };
 

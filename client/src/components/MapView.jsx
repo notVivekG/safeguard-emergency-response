@@ -40,12 +40,26 @@ const userIcon = L.divIcon({
   iconAnchor: [7, 7]
 });
 
+const getSeverityIntensity = (severity) => {
+  const intensities = {
+    critical: 1.0,
+    high: 0.7,
+    medium: 0.4,
+    low: 0.2
+  };
+  return intensities[severity] || 0.2;
+};
+
 // Heatmap Layer Component
 const HeatmapLayer = ({ data }) => {
   const map = useMap();
   useEffect(() => {
     if (!data || data.length === 0) return;
-    const points = data.map(inc => [inc.location.coordinates[1], inc.location.coordinates[0], 1]); // lat, lng, intensity
+    const points = data.map(inc => [
+      inc.location.coordinates[1], 
+      inc.location.coordinates[0], 
+      getSeverityIntensity(inc.severity)
+    ]);
     const heat = L.heatLayer(points, { radius: 25, blur: 15 }).addTo(map);
     return () => {
       map.removeLayer(heat);
@@ -83,10 +97,12 @@ const LocationPicker = ({ onLocationSelect }) => {
 
 const MapView = ({ incidents = [], showHeatmap = false, userLocation, onLocationSelect, pickedLocation }) => {
   const defaultCenter = [20.5937, 78.9629]; // India center
+  const mapRef = useRef(null);
 
   return (
     <div className="h-full w-full rounded-lg overflow-hidden relative z-0">
       <MapContainer 
+        ref={mapRef}
         center={userLocation || defaultCenter} 
         zoom={5} 
         style={{ height: '100%', width: '100%', minHeight: '400px' }}
@@ -100,28 +116,26 @@ const MapView = ({ incidents = [], showHeatmap = false, userLocation, onLocation
         <MapEffects incidents={incidents} center={userLocation || pickedLocation} />
         {onLocationSelect && <LocationPicker onLocationSelect={onLocationSelect} />}
 
-        {showHeatmap ? (
-          <HeatmapLayer data={incidents} />
-        ) : (
-          incidents.map(inc => (
-            <Marker 
-              key={inc._id} 
-              position={[inc.location.coordinates[1], inc.location.coordinates[0]]}
-              icon={createCustomIcon(inc.type)}
-            >
-              <Popup>
-                <div className="p-1">
-                  <h4 className="font-bold">{inc.title}</h4>
-                  <p className="text-xs text-gray-600 mb-1">{inc.type.toUpperCase()}</p>
-                  <p className="text-xs mb-2">{inc.address}</p>
-                  <span className={`text-[10px] px-1 py-0.5 rounded text-white ${
-                    inc.severity === 'high' ? 'bg-red-500' : inc.severity === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
-                  }`}>{inc.severity.toUpperCase()}</span>
-                </div>
-              </Popup>
-            </Marker>
-          ))
-        )}
+        {showHeatmap && <HeatmapLayer data={incidents} />}
+        
+        {incidents.map(inc => (
+          <Marker 
+            key={inc._id} 
+            position={[inc.location.coordinates[1], inc.location.coordinates[0]]}
+            icon={createCustomIcon(inc.type)}
+          >
+            <Popup>
+              <div className="p-1">
+                <h4 className="font-bold">{inc.title}</h4>
+                <p className="text-xs text-gray-600 mb-1">{inc.type.toUpperCase()}</p>
+                <p className="text-xs mb-2">{inc.address}</p>
+                <span className={`text-[10px] px-1 py-0.5 rounded text-white ${
+                  inc.severity === 'high' ? 'bg-red-500' : inc.severity === 'medium' ? 'bg-yellow-500' : 'bg-green-500'
+                }`}>{inc.severity.toUpperCase()}</span>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
 
         {userLocation && (
           <>
