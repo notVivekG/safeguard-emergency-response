@@ -17,13 +17,18 @@ const taskStatusBadge = {
 };
 
 const Dashboard = () => {
-  const { user, setUser } = useContext(AuthContext);
+  const { user, setUser, updateUserProfile } = useContext(AuthContext);
   const { socket } = useContext(SocketContext);
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('reports');
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Profile editing state
+  const [profileForm, setProfileForm] = useState({ name: '' });
+  const [profileEditing, setProfileEditing] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
 
   // Volunteer application & profile state
   const [volunteerData, setVolunteerData] = useState(null);
@@ -60,6 +65,20 @@ const Dashboard = () => {
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
+  };
+
+  const handleSaveProfile = async () => {
+    setProfileSaving(true);
+    try {
+      const res = await api.patch('/users/profile', { name: profileForm.name });
+      updateUserProfile({ name: res.data.name });
+      showToast('Profile updated successfully', 'success');
+      setProfileEditing(false);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to update profile', 'error');
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -399,17 +418,63 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Sidebar */}
+      {/* Profile Card - visible to all users */}
       <div className="w-full md:w-64 shrink-0">
-        <div className="bg-white dark:bg-navy-light rounded-xl shadow p-6 mb-6 text-center">
-          <div className="w-20 h-20 bg-primary text-white text-2xl font-bold rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-            {user?.name?.charAt(0)}
+        <div className="bg-white dark:bg-navy-light rounded-xl shadow p-6 mb-6">
+          <div className="text-center mb-4">
+            <div className="w-20 h-20 bg-primary text-white text-2xl font-bold rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+              {user?.name?.charAt(0)}
+            </div>
+            <h2 className="font-bold text-lg text-navy dark:text-white">{user?.name}</h2>
+            <p className="text-sm text-gray-500 mb-2">{user?.email}</p>
+            <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full uppercase tracking-wide">
+              {user?.role}
+            </span>
           </div>
-          <h2 className="font-bold text-lg text-navy dark:text-white">{user?.name}</h2>
-          <p className="text-sm text-gray-500 mb-2">{user?.email}</p>
-          <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-full uppercase tracking-wide">
-            {user?.role}
-          </span>
+
+          {profileEditing ? (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={profileForm.name}
+                  onChange={(e) => setProfileForm({ name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg text-sm bg-white dark:bg-navy text-navy dark:text-white outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Your name"
+                  maxLength={50}
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={profileSaving}
+                  className="flex-1 min-h-[36px] bg-primary text-white rounded-lg px-3 py-2 text-xs font-bold hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {profileSaving ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={() => {
+                    setProfileEditing(false);
+                    setProfileForm({ name: user?.name || '' });
+                  }}
+                  className="flex-1 min-h-[36px] bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 rounded-lg px-3 py-2 text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setProfileForm({ name: user?.name || '' });
+                setProfileEditing(true);
+              }}
+              className="w-full min-h-[36px] bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 rounded-lg px-3 py-2 text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            >
+              Edit Profile
+            </button>
+          )}
         </div>
 
         <nav className="flex flex-row md:flex-col overflow-x-auto md:overflow-visible gap-2 pb-2 md:pb-0 scrollbar-none whitespace-nowrap">

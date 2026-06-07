@@ -33,7 +33,7 @@ const Alerts = () => {
         </div>
         
         <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 scrollbar-none whitespace-nowrap">
-          <select 
+          <select
             className="flex-1 md:w-auto p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-navy dark:text-white outline-none h-11 shrink-0"
             onChange={e => setFilters(prev => ({...prev, status: e.target.value}))}
           >
@@ -41,6 +41,7 @@ const Alerts = () => {
             <option value="active">Active</option>
             <option value="investigating">Investigating</option>
             <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
           </select>
           <select 
             className="flex-1 md:w-auto p-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-navy dark:text-white outline-none h-11 shrink-0"

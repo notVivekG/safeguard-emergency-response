@@ -81,11 +81,41 @@ const Navbar = () => {
       }, ...prev]);
     };
 
+    // TASK 3: Add socket listener for task assignment
+    const handleTaskAssigned = (data) => {
+      setNotifications(prev => [{
+        id: Date.now().toString(),
+        type: 'task',
+        title: `New task assigned: ${data.title}`,
+        body: `Task for ${data.incidentId?.title ?? 'an incident'}`,
+        time: new Date().toLocaleTimeString(),
+        read: false,
+        createdAt: new Date().toISOString()
+      }, ...prev]);
+    };
+
+    // TASK 3: Add socket listener for SOS assignment
+    const handleSOSAssigned = (data) => {
+      setNotifications(prev => [{
+        id: Date.now().toString(),
+        type: 'sos',
+        title: `SOS Emergency Assignment`,
+        body: `You have been assigned to an SOS emergency at ${data.address}`,
+        time: new Date().toLocaleTimeString(),
+        read: false,
+        createdAt: new Date().toISOString()
+      }, ...prev]);
+    };
+
     socket.on('incident:new', handleNewIncident);
     socket.on('broadcast:new', handleBroadcast);
+    socket.on('task:assigned', handleTaskAssigned);
+    socket.on('sos:assigned', handleSOSAssigned);
     return () => {
       socket.off('incident:new', handleNewIncident);
       socket.off('broadcast:new', handleBroadcast);
+      socket.off('task:assigned', handleTaskAssigned);
+      socket.off('sos:assigned', handleSOSAssigned);
     };
   }, [socket]);
 
@@ -161,13 +191,13 @@ const Navbar = () => {
                 onClick={() => { setNotifOpen(!notifOpen); setDropdownOpen(false); }}
                 className="relative p-1.5 sm:p-2 rounded-full hover:bg-gray-700 transition-colors text-gray-400 hover:text-white focus:outline-none"
               >
-                {notifications.length > 0 && (
+                {notifications.filter(n => !n.read).length > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-                    {notifications.length}
+                    {notifications.filter(n => !n.read).length}
                   </span>
                 )}
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.003 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
               </button>
 
@@ -188,10 +218,26 @@ const Navbar = () => {
                   ) : (
                     <div className="max-h-80 overflow-y-auto">
                       {notifications.map((notif) => (
-                        <div key={notif.id} className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <p className="font-semibold text-sm text-gray-900 dark:text-white">{notif.title}</p>
-                          <p className="text-xs text-gray-500 mt-1">{notif.body}</p>
-                          <p className="text-xs text-gray-400 mt-1">{notif.time}</p>
+                        <div
+                          key={notif.id}
+                          onClick={() => {
+                            setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+                          }}
+                          className={`px-4 py-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer ${!notif.read ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
+                        >
+                          <div className="flex items-start gap-2">
+                            {notif.type === 'task' && (
+                              <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 text-xs font-bold rounded">Task</span>
+                            )}
+                            {notif.type === 'sos' && (
+                              <span className="px-1.5 py-0.5 bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 text-xs font-bold rounded">SOS</span>
+                            )}
+                            <div className="flex-1">
+                              <p className="font-semibold text-sm text-gray-900 dark:text-white">{notif.title}</p>
+                              <p className="text-xs text-gray-500 mt-1">{notif.body}</p>
+                              <p className="text-xs text-gray-400 mt-1">{notif.time}</p>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>

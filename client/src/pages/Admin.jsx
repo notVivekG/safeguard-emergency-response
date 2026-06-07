@@ -136,8 +136,8 @@ const IncidentsTab = () => {
     setShowAssignModal(true);
     setVolunteersLoading(true);
     try {
-      const res = await api.get('/admin/volunteers');
-      setVolunteers(res.data.filter(v => v.status === 'approved' && v.availability));
+      const res = await api.get('/admin/volunteers?availableOnly=true');
+      setVolunteers(res.data);
     } catch (e) {
       console.error(e);
     } finally {
@@ -149,12 +149,31 @@ const IncidentsTab = () => {
     if (!taskForm.title || selectedVolunteers.length === 0) return;
     setSubmitting(true);
     try {
-      await api.post('/admin/tasks', {
+      const res = await api.post('/admin/tasks', {
         title: taskForm.title,
         description: taskForm.description,
         incidentId: selectedIncident._id,
         assignedTo: selectedVolunteers
       });
+      // FIX: Populate assignedTo with full volunteer objects to show names immediately
+      const populatedAssignedTo = selectedVolunteers.map(id => {
+        const match = volunteers.find(v => (v.user?._id ?? v.user) === id || v._id === id);
+        return match?.user ?? match ?? { _id: id, name: 'Volunteer', email: '' };
+      });
+      const populatedTask = {
+        ...res.data,
+        assignedTo: populatedAssignedTo
+      };
+      setIncidents(prev =>
+        prev.map(inc =>
+          inc._id === selectedIncident._id
+            ? {
+                ...inc,
+                tasks: [...(inc.tasks || []), populatedTask]
+              }
+            : inc
+        )
+      );
       setToast({ show: true, message: `Task assigned to ${selectedVolunteers.length} volunteer(s)`, type: 'success' });
       setShowAssignModal(false);
     } catch (e) {
@@ -235,20 +254,23 @@ const IncidentsTab = () => {
                         {inc.tasks.map(task => (
                           <div key={task._id} className="text-xs">
                             {task.assignedTo && task.assignedTo.length > 0 ? (
-                              task.assignedTo.map(volunteer => (
-                                <div key={volunteer._id} className="flex items-center gap-1 mb-1">
-                                  <span className="font-medium">{volunteer.name}</span>
-                                  <span className="text-gray-400">—</span>
-                                  <span className="text-gray-600 dark:text-gray-300">{task.title}</span>
-                                  <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
-                                    task.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                                    task.status === 'in-progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
-                                    'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
-                                  }`}>
-                                    {task.status === 'completed' ? '✓ Completed' : task.status === 'in-progress' ? 'In Progress' : 'Assigned'}
-                                  </span>
-                                </div>
-                              ))
+                              task.assignedTo.map(volunteer => {
+                                const name = typeof volunteer === 'string' ? 'Volunteer' : (volunteer?.name ?? volunteer?.user?.name ?? volunteer?.email ?? 'Volunteer');
+                                return (
+                                  <div key={typeof volunteer === 'string' ? volunteer : volunteer._id} className="flex items-center gap-1 mb-1">
+                                    <span className="font-medium">{name}</span>
+                                    <span className="text-gray-400">—</span>
+                                    <span className="text-gray-600 dark:text-gray-300">{task.title}</span>
+                                    <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                                      task.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                                      task.status === 'in-progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                                      'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+                                    }`}>
+                                      {task.status === 'completed' ? '✓ Completed' : task.status === 'in-progress' ? 'In Progress' : 'Assigned'}
+                                    </span>
+                                  </div>
+                                );
+                              })
                             ) : (
                               <span className="text-gray-400">No volunteers assigned</span>
                             )}
@@ -346,7 +368,7 @@ const IncidentsTab = () => {
                     ))}
                   </div>
                 ) : volunteers.length === 0 ? (
-                  <p className="text-sm text-gray-500">No approved and available volunteers found.</p>
+                  <p className="text-sm text-gray-500">No volunteers are currently available. Volunteers must be approved and set to Available.</p>
                 ) : (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {volunteers.map(v => (
@@ -678,8 +700,8 @@ const VolunteersTab = () => {
   useEffect(() => {
     if (!socket) return;
 
-    const handleAvailabilityUpdated = ({ volunteerId, isAvailable }) => {
-      setVolunteers(prev => prev.map(v => v._id === volunteerId ? { ...v, availability: isAvailable } : v));
+    const handleAvailabilityUpdated = ({ volunteerId, isAvailable, currentStatus }) => {
+      setVolunteers(prev => prev.map(v => v._id === volunteerId ? { ...v, availability: isAvailable, activityStatus: currentStatus } : v));
     };
 
     socket.on('volunteer:availabilityUpdated', handleAvailabilityUpdated);

@@ -20,7 +20,7 @@ const Home = () => {
   useEffect(() => { document.title = 'SafeGuard — Emergency Response'; }, []);
 
   useEffect(() => {
-    api.get('/incidents?status=active')
+    api.get('/incidents')
       .then(res => {
         setIncidents(res.data?.incidents || res.data || []);
         setLoading(false);

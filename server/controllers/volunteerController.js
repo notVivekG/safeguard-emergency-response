@@ -42,6 +42,16 @@ export const updateVolunteerStatus = async (req, res) => {
       { activityStatus: status },
       { new: true }
     );
+
+    // FIX 2A: Emit real-time activityStatus change so admin panel updates live
+    if (req.io) {
+      req.io.emit('volunteer:availabilityUpdated', {
+        volunteerId: volunteer._id,
+        isAvailable: volunteer.availability,
+        currentStatus: volunteer.activityStatus
+      });
+    }
+
     res.json(volunteer);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -77,11 +87,13 @@ export const updateVolunteerSettings = async (req, res) => {
 
     const updated = await volunteer.save();
 
-    // Emit real-time availability change so admin panel updates live
+    // FIX 2A: Emit real-time availability change so admin panel updates live
+    // Include both isAvailable and currentStatus (activityStatus)
     if (availability !== undefined && req.io) {
       req.io.emit('volunteer:availabilityUpdated', {
         volunteerId: updated._id,
-        isAvailable: updated.availability
+        isAvailable: updated.availability,
+        currentStatus: updated.activityStatus
       });
     }
 

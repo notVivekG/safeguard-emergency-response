@@ -16,7 +16,7 @@ router.get('/me', protect, async (req, res) => {
 
 router.route('/profile')
   .get(protect, getProfile)
-  .put(protect, updateProfile);
+  .patch(protect, updateProfile);
 
 router.post('/sos', protect, triggerSOS);
 router.get('/reports', protect, getUserReports);

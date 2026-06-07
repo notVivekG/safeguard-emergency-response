@@ -12,10 +12,23 @@ export const getProfile = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
+    const { name } = req.body;
+    
+    // Validate name
+    if (name !== undefined) {
+      const trimmedName = name.trim();
+      if (!trimmedName || trimmedName.length === 0) {
+        return res.status(400).json({ message: 'Name cannot be empty' });
+      }
+      if (trimmedName.length > 50) {
+        return res.status(400).json({ message: 'Name cannot exceed 50 characters' });
+      }
+    }
+
     const user = await User.findById(req.user._id);
     
     if (user) {
-      user.name = req.body.name || user.name;
+      if (name !== undefined) user.name = name.trim();
       user.phone = req.body.phone || user.phone;
       if (req.body.location) user.location = req.body.location;
 

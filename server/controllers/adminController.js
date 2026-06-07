@@ -140,7 +140,19 @@ export const exportIncidentsCSV = async (req, res) => {
 
 export const getAllVolunteersAdmin = async (req, res) => {
   try {
-    const volunteers = await Volunteer.find().populate('user', 'name email phone');
+    const { availableOnly } = req.query;
+    let query = {};
+
+    // TASK 2: Filter for available volunteers when requested
+    if (availableOnly === 'true') {
+      query = {
+        availability: true,
+        status: 'approved',
+        activityStatus: { $ne: 'not_available' }
+      };
+    }
+
+    const volunteers = await Volunteer.find(query).populate('user', 'name email phone');
     res.json(volunteers);
   } catch (error) {
     res.status(500).json({ message: error.message });

@@ -39,14 +39,20 @@ const IncidentCard = ({ incident }) => {
 
       <div className="mt-4 flex justify-between items-center">
         <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-          incident.status === 'active' ? 'bg-red-100 text-red-800' :
-          incident.status === 'investigating' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-green-100 text-green-800'
+          incident.status === 'active' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+          incident.status === 'investigating' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
+          incident.status === 'resolved' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+          incident.status === 'closed' ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400' :
+          'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
         }`}>
-          {incident.status.toUpperCase()}
+          {incident.status === 'active' ? 'Active' :
+           incident.status === 'investigating' ? 'Investigating' :
+           incident.status === 'resolved' ? 'Resolved' :
+           incident.status === 'closed' ? 'Closed' :
+           incident.status.toUpperCase()}
         </span>
-        <Link 
-          to={`/alerts?id=${incident._id}`} 
+        <Link
+          to={`/alerts?id=${incident._id}`}
           className="text-sm text-primary hover:text-primary-dark font-medium"
         >
           View Details →
