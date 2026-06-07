@@ -37,10 +37,52 @@ export const updateUserRole = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (user) {
-      user.role = req.body.role || user.role;
+      const previousRole = user.role;
+      const newRole = req.body.role || user.role;
+      user.role = newRole;
       const updatedUser = await user.save();
-      // Notify affected client in real time
-      req.io.emit('user:roleUpdated', { userId: updatedUser._id, role: updatedUser.role });
+
+      // FIX 1: When admin assigns volunteer role, create or update Volunteer document with auto-approval
+      if (newRole === 'volunteer') {
+        let volunteer = await Volunteer.findOne({ user: updatedUser._id });
+        if (!volunteer) {
+          // Create new Volunteer document with auto-approved status
+          volunteer = await Volunteer.create({
+            user: updatedUser._id,
+            status: 'approved',
+            availability: true,
+            skills: [],
+            activityStatus: 'available',
+            emergencyContactName: '',
+            emergencyContactPhone: '',
+            bio: '',
+            preferredContact: 'phone'
+          });
+        } else {
+          // Update existing Volunteer document to approved and available
+          volunteer.status = 'approved';
+          volunteer.activityStatus = 'available';
+          await volunteer.save();
+        }
+        // Emit volunteer:approved to unlock settings immediately
+        req.io.to(`user_${updatedUser._id}`).emit('volunteer:approved', { status: 'approved' });
+      }
+
+      // FIX 2: When changing from volunteer to user, delete Volunteer document entirely
+      if (previousRole === 'volunteer' && newRole !== 'volunteer') {
+        await Volunteer.findOneAndDelete({ user: updatedUser._id });
+      }
+
+      // Emit to the specific user's private socket room
+      req.io.to(`user_${updatedUser._id}`).emit('user:roleUpdated', { userId: updatedUser._id, newRole });
+      // Also broadcast globally (for admin panels watching)
+      req.io.emit('user:roleUpdated', { userId: updatedUser._id, role: newRole });
+
+      // If demoted from volunteer to user, emit deactivation event
+      if (previousRole === 'volunteer' && newRole !== 'volunteer') {
+        req.io.to(`user_${updatedUser._id}`).emit('volunteer:deactivated', { userId: updatedUser._id });
+      }
+
       res.json({
         _id: updatedUser._id,
         name: updatedUser.name,

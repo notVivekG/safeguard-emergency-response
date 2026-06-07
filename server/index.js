@@ -21,6 +21,7 @@ import volunteerRoutes from './routes/volunteers.js';
 import adminRoutes from './routes/admin.js';
 import aiRoutes from './routes/ai.js';
 import notificationRoutes from './routes/notifications.js';
+import sosRoutes from './routes/sos.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -65,6 +66,7 @@ app.use('/api/v1/volunteers', volunteerRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/sos', sosRoutes);
 
 // Error Handling
 app.use(errorHandler);

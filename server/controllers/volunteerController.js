@@ -76,6 +76,15 @@ export const updateVolunteerSettings = async (req, res) => {
     if (bio !== undefined) volunteer.bio = bio;
 
     const updated = await volunteer.save();
+
+    // Emit real-time availability change so admin panel updates live
+    if (availability !== undefined && req.io) {
+      req.io.emit('volunteer:availabilityUpdated', {
+        volunteerId: updated._id,
+        isAvailable: updated.availability
+      });
+    }
+
     res.json(updated);
   } catch (error) {
     res.status(500).json({ message: error.message });

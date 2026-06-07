@@ -9,6 +9,7 @@ import {
   approveVolunteer,
   rejectVolunteer
 } from '../controllers/adminController.js';
+import { createTask } from '../controllers/taskController.js';
 import { protect } from '../middleware/auth.js';
 import { admin as adminMiddleware } from '../middleware/admin.js';
 
@@ -26,5 +27,6 @@ router.patch('/volunteers/:id/approve', approveVolunteer);
 router.patch('/volunteers/:id/reject', rejectVolunteer);
 router.post('/broadcast', broadcastNotification);
 router.get('/export/incidents', exportIncidentsCSV);
+router.post('/tasks', createTask);
 
 export default router;

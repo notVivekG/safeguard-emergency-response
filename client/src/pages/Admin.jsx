@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { motion } from 'framer-motion';
+import { SocketContext } from '../context/SocketContext';
 import api from '../services/api';
 import PageWrapper from '../components/PageWrapper';
 import Toast from '../components/Toast';
@@ -51,15 +52,51 @@ const OverviewTab = ({ statsLoading, stats }) => (
 
 // ── Incidents Tab ─────────────────────────────────────────────────
 const IncidentsTab = () => {
+  const { socket } = useContext(SocketContext);
   const [incidents, setIncidents] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedIncident, setSelectedIncident] = useState(null);
+  const [volunteers, setVolunteers] = useState([]);
+  const [volunteersLoading, setVolunteersLoading] = useState(false);
+  const [taskForm, setTaskForm] = useState({ title: '', description: '' });
+  const [selectedVolunteers, setSelectedVolunteers] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   useEffect(() => {
     api.get('/incidents').then(res => {
       setIncidents(res.data?.incidents || res.data || []);
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
+
+  // FIX 5: Socket listener for task status updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleTaskStatusUpdated = ({ taskId, volunteerName, newStatus }) => {
+      setIncidents(prev => prev.map(inc => {
+        if (!inc.tasks) return inc;
+        return {
+          ...inc,
+          tasks: inc.tasks.map(task => 
+            task._id === taskId ? { ...task, status: newStatus } : task
+          )
+        };
+      }));
+
+      if (newStatus === 'completed') {
+        setToast({ show: true, message: `${volunteerName} has completed their task.`, type: 'success' });
+      }
+    };
+
+    socket.on('task:statusUpdated', handleTaskStatusUpdated);
+
+    return () => {
+      socket.off('task:statusUpdated', handleTaskStatusUpdated);
+    };
+  }, [socket]);
 
   const handleStatusChange = async (id, status) => {
     try {
@@ -76,6 +113,65 @@ const IncidentsTab = () => {
     } catch (e) { console.error(e); }
   };
 
+  const handleResolveIncident = async (id) => {
+    try {
+      await api.put(`/incidents/${id}`, { status: 'resolved' });
+      setIncidents(prev => prev.map(i => i._id === id ? { ...i, status: 'resolved' } : i));
+      setToast({ show: true, message: 'Incident marked as resolved.', type: 'success' });
+    } catch (e) {
+      console.error(e);
+      setToast({ show: true, message: 'Failed to resolve incident.', type: 'error' });
+    }
+  };
+
+  const allTasksCompleted = (incident) => {
+    if (!incident.tasks || incident.tasks.length === 0) return false;
+    return incident.tasks.every(task => task.status === 'completed');
+  };
+
+  const openAssignModal = async (incident) => {
+    setSelectedIncident(incident);
+    setTaskForm({ title: '', description: '' });
+    setSelectedVolunteers([]);
+    setShowAssignModal(true);
+    setVolunteersLoading(true);
+    try {
+      const res = await api.get('/admin/volunteers');
+      setVolunteers(res.data.filter(v => v.status === 'approved' && v.availability));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setVolunteersLoading(false);
+    }
+  };
+
+  const handleAssignTask = async () => {
+    if (!taskForm.title || selectedVolunteers.length === 0) return;
+    setSubmitting(true);
+    try {
+      await api.post('/admin/tasks', {
+        title: taskForm.title,
+        description: taskForm.description,
+        incidentId: selectedIncident._id,
+        assignedTo: selectedVolunteers
+      });
+      setToast({ show: true, message: `Task assigned to ${selectedVolunteers.length} volunteer(s)`, type: 'success' });
+      setShowAssignModal(false);
+    } catch (e) {
+      setToast({ show: true, message: e.response?.data?.message || 'Failed to assign task', type: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const toggleVolunteer = (volunteerId) => {
+    setSelectedVolunteers(prev => 
+      prev.includes(volunteerId) 
+        ? prev.filter(id => id !== volunteerId)
+        : [...prev, volunteerId]
+    );
+  };
+
   const filtered = incidents.filter(i => i.title?.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -89,6 +185,9 @@ const IncidentsTab = () => {
           className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary dark:border-gray-600 dark:bg-navy dark:text-white md:w-64"
         />
       </div>
+      {toast.show && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast({ show: false, message: '', type: 'success' })} />
+      )}
       {loading ? (
         <div className="space-y-3">
           {[1,2,3,4,5].map(i => (
@@ -100,14 +199,14 @@ const IncidentsTab = () => {
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-navy">
               <tr>
-                {['Title', 'Type', 'Severity', 'Status', 'Location', 'Reported By', 'Date', 'Actions'].map(h => (
+                {['Title', 'Type', 'Severity', 'Status', 'Location', 'Reported By', 'Assigned Volunteers', 'Date', 'Actions'].map(h => (
                   <th key={h} className={thCls}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-navy-light divide-y divide-gray-100 dark:divide-gray-800">
               {filtered.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-8 text-gray-400">No incidents found</td></tr>
+                <tr><td colSpan={9} className="text-center py-8 text-gray-400">No incidents found</td></tr>
               ) : filtered.map(inc => (
                 <tr key={inc._id} className="hover:bg-gray-50 dark:hover:bg-navy transition-colors">
                   <td className={`${tdCls} max-w-[160px] truncate font-medium`}>{inc.title}</td>
@@ -130,19 +229,169 @@ const IncidentsTab = () => {
                   </td>
                   <td className={`${tdCls} max-w-[140px] truncate text-gray-400`}>{inc.address || '—'}</td>
                   <td className={tdCls}>{inc.reportedBy?.name || '—'}</td>
+                  <td className={tdCls}>
+                    {inc.tasks && inc.tasks.length > 0 ? (
+                      <div className="flex flex-col gap-1">
+                        {inc.tasks.map(task => (
+                          <div key={task._id} className="text-xs">
+                            {task.assignedTo && task.assignedTo.length > 0 ? (
+                              task.assignedTo.map(volunteer => (
+                                <div key={volunteer._id} className="flex items-center gap-1 mb-1">
+                                  <span className="font-medium">{volunteer.name}</span>
+                                  <span className="text-gray-400">—</span>
+                                  <span className="text-gray-600 dark:text-gray-300">{task.title}</span>
+                                  <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                                    task.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                                    task.status === 'in-progress' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                                    'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+                                  }`}>
+                                    {task.status === 'completed' ? '✓ Completed' : task.status === 'in-progress' ? 'In Progress' : 'Assigned'}
+                                  </span>
+                                </div>
+                              ))
+                            ) : (
+                              <span className="text-gray-400">No volunteers assigned</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">None assigned</span>
+                    )}
+                  </td>
                   <td className={tdCls}>{new Date(inc.createdAt).toLocaleDateString()}</td>
                   <td className={tdCls}>
-                    <button
-                      onClick={() => handleDelete(inc._id)}
-                      className="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 text-xs font-bold transition-colors"
-                    >
-                      Delete
-                    </button>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={() => openAssignModal(inc)}
+                        className="px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 text-xs font-bold transition-colors"
+                      >
+                        Assign Volunteers
+                      </button>
+                      {allTasksCompleted(inc) && inc.status !== 'resolved' && (
+                        <button
+                          onClick={() => handleResolveIncident(inc._id)}
+                          className="px-3 py-1 bg-green-100 text-green-600 rounded hover:bg-green-200 text-xs font-bold transition-colors"
+                        >
+                          Mark Resolved
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDelete(inc._id)}
+                        className="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 text-xs font-bold transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Assign Volunteers Modal */}
+      {showAssignModal && selectedIncident && (
+        <div className="fixed inset-0 z-[9000] flex items-center justify-center bg-black/70 px-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-navy dark:text-white mb-1">{selectedIncident.title}</h3>
+                <div className="flex gap-2">
+                  <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-bold rounded capitalize">
+                    {selectedIncident.type}
+                  </span>
+                  <span className={`px-2 py-0.5 text-xs font-bold rounded ${severityColor[selectedIncident.severity]}`}>
+                    {selectedIncident.severity}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAssignModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Task Title *</label>
+                <input
+                  value={taskForm.title}
+                  onChange={e => setTaskForm({ ...taskForm, title: e.target.value })}
+                  placeholder="Enter task title"
+                  className="w-full h-11 px-3 bg-gray-50 dark:bg-navy border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-navy dark:text-white outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Task Description</label>
+                <textarea
+                  value={taskForm.description}
+                  onChange={e => setTaskForm({ ...taskForm, description: e.target.value })}
+                  placeholder="Enter task description (optional)"
+                  rows={3}
+                  className="w-full p-3 bg-gray-50 dark:bg-navy border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-navy dark:text-white outline-none focus:ring-2 focus:ring-primary resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Select Volunteers</label>
+                {volunteersLoading ? (
+                  <div className="space-y-2">
+                    {[1,2,3].map(i => (
+                      <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                    ))}
+                  </div>
+                ) : volunteers.length === 0 ? (
+                  <p className="text-sm text-gray-500">No approved and available volunteers found.</p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {volunteers.map(v => (
+                      <label
+                        key={v._id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                          selectedVolunteers.includes(v.user?._id)
+                            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'
+                            : 'bg-gray-50 dark:bg-navy border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedVolunteers.includes(v.user?._id)}
+                          onChange={() => toggleVolunteer(v.user?._id)}
+                          className="w-4 h-4 text-primary rounded focus:ring-primary"
+                        />
+                        <div className="flex-1">
+                          <p className="font-medium text-navy dark:text-white text-sm">{v.user?.name || '—'}</p>
+                          <div className="flex gap-1 mt-1">
+                            {v.skills?.slice(0, 3).map((s, idx) => (
+                              <span key={idx} className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded">
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold rounded">
+                          Available
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={handleAssignTask}
+                disabled={!taskForm.title || selectedVolunteers.length === 0 || submitting}
+                className="w-full py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {submitting ? 'Assigning...' : 'Assign Task'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -411,6 +660,7 @@ const ExportTab = () => {
 
 // ── Volunteers Tab ────────────────────────────────────────────────
 const VolunteersTab = () => {
+  const { socket } = useContext(SocketContext);
   const [volunteers, setVolunteers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -423,6 +673,21 @@ const VolunteersTab = () => {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  // Socket listener for availability updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleAvailabilityUpdated = ({ volunteerId, isAvailable }) => {
+      setVolunteers(prev => prev.map(v => v._id === volunteerId ? { ...v, availability: isAvailable } : v));
+    };
+
+    socket.on('volunteer:availabilityUpdated', handleAvailabilityUpdated);
+
+    return () => {
+      socket.off('volunteer:availabilityUpdated', handleAvailabilityUpdated);
+    };
+  }, [socket]);
 
   const handleApprove = async (id) => {
     try {
@@ -467,14 +732,14 @@ const VolunteersTab = () => {
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-navy">
               <tr>
-                {['Name', 'Email', 'Skills', 'Availability', 'Status', 'Actions'].map(h => (
+                {['Name', 'Email', 'Skills', 'Availability', 'Current Status', 'Status', 'Actions'].map(h => (
                   <th key={h} className={thCls}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-navy-light divide-y divide-gray-100 dark:divide-gray-800">
               {volunteers.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8 text-gray-400">No volunteer applications found</td></tr>
+                <tr><td colSpan={7} className="text-center py-8 text-gray-400">No volunteer applications found</td></tr>
               ) : volunteers.map(v => (
                 <tr key={v._id} className="hover:bg-gray-50 dark:hover:bg-navy transition-colors">
                   <td className={`${tdCls} font-medium`}>{v.user?.name || '—'}</td>
@@ -491,6 +756,21 @@ const VolunteersTab = () => {
                   <td className={tdCls}>
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${v.availability ? 'bg-green-100 text-green-800 dark:bg-green-950/20 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-950/20 dark:text-red-400'}`}>
                       {v.availability ? 'Available' : 'Unavailable'}
+                    </span>
+                  </td>
+                  <td className={tdCls}>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold capitalize ${
+                      v.activityStatus === 'not_available' 
+                        ? 'bg-gray-100 text-gray-800 dark:bg-gray-950/20 dark:text-gray-400' 
+                        : v.activityStatus === 'available'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-950/20 dark:text-green-400'
+                          : v.activityStatus === 'en-route'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/20 dark:text-blue-400'
+                            : v.activityStatus === 'on-site'
+                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/20 dark:text-purple-400'
+                              : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950/20 dark:text-yellow-400'
+                    }`}>
+                      {v.activityStatus?.replace('-', ' ') || 'Available'}
                     </span>
                   </td>
                   <td className={tdCls}>
@@ -528,6 +808,268 @@ const VolunteersTab = () => {
   );
 };
 
+// ── SOS Alerts Tab ─────────────────────────────────────────────────
+const SOSAlertsTab = () => {
+  const { socket } = useContext(SocketContext);
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [hasUnread, setHasUnread] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [volunteers, setVolunteers] = useState([]);
+  const [volunteersLoading, setVolunteersLoading] = useState(false);
+  const [selectedVolunteers, setSelectedVolunteers] = useState([]);
+  const [assigning, setAssigning] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  useEffect(() => {
+    api.get('/sos')
+      .then(res => {
+        setAlerts(res.data || []);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  // Socket listener for new SOS alerts
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleSosAlert = (payload) => {
+      setAlerts(prev => [payload, ...prev]);
+      setHasUnread(true);
+      // Play beep sound
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        osc.connect(ctx.destination);
+        osc.frequency.value = 880;
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+      } catch (e) {
+        console.error('Audio play failed:', e);
+      }
+    };
+
+    socket.on('sos:alert', handleSosAlert);
+
+    return () => {
+      socket.off('sos:alert', handleSosAlert);
+    };
+  }, [socket]);
+
+  const handleResolve = async (id) => {
+    try {
+      await api.patch(`/sos/${id}/resolve`);
+      setAlerts(prev => prev.map(a => a._id === id ? { ...a, status: 'resolved' } : a));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const openAssignModal = async (alert) => {
+    setSelectedAlert(alert);
+    setSelectedVolunteers(alert.assignedVolunteers?.map(v => v._id) || []);
+    setShowAssignModal(true);
+    setVolunteersLoading(true);
+    try {
+      const res = await api.get('/admin/volunteers');
+      setVolunteers(res.data.filter(v => v.status === 'approved' && v.availability));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setVolunteersLoading(false);
+    }
+  };
+
+  const handleAssignVolunteers = async () => {
+    if (selectedVolunteers.length === 0) return;
+    setAssigning(true);
+    try {
+      const res = await api.patch(`/sos/${selectedAlert._id}/assign`, { volunteerIds: selectedVolunteers });
+      setAlerts(prev => prev.map(a => a._id === selectedAlert._id ? res.data : a));
+      setToast({ show: true, message: `Volunteer(s) assigned to SOS alert`, type: 'success' });
+      setShowAssignModal(false);
+    } catch (e) {
+      setToast({ show: true, message: e.response?.data?.message || 'Failed to assign volunteers', type: 'error' });
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const toggleVolunteer = (volunteerId) => {
+    setSelectedVolunteers(prev => 
+      prev.includes(volunteerId) 
+        ? prev.filter(id => id !== volunteerId)
+        : [...prev, volunteerId]
+    );
+  };
+
+  const sosStatusColor = {
+    active: 'bg-red-100 text-red-800 dark:bg-red-950/20 dark:text-red-400',
+    resolved: 'bg-green-100 text-green-800 dark:bg-green-950/20 dark:text-green-400'
+  };
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold text-navy dark:text-white mb-4">SOS Alerts</h2>
+      {toast.show && (
+        <Toast message={toast.message} type={toast.type} onClose={() => setToast({ show: false, message: '', type: 'success' })} />
+      )}
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+          ))}
+        </div>
+      ) : alerts.length === 0 ? (
+        <div className="text-center py-16">
+          <div className="text-5xl mb-4">🚨</div>
+          <h3 className="text-xl font-bold text-gray-700 dark:text-white mb-2">No SOS Alerts</h3>
+          <p className="text-gray-500">Emergency SOS alerts will appear here.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-navy">
+              <tr>
+                {['Name', 'Address', 'Time', 'Status', 'Assigned Volunteers', 'Action'].map(h => (
+                  <th key={h} className={thCls}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-navy-light divide-y divide-gray-100 dark:divide-gray-800">
+              {alerts.map(alert => (
+                <tr key={alert._id} className="hover:bg-gray-50 dark:hover:bg-navy transition-colors">
+                  <td className={`${tdCls} font-medium`}>{alert.userName || '—'}</td>
+                  <td className={`${tdCls} max-w-[200px] truncate`}>{alert.address || '—'}</td>
+                  <td className={tdCls}>{new Date(alert.createdAt).toLocaleString()}</td>
+                  <td className={tdCls}>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${sosStatusColor[alert.status] || 'bg-gray-100 text-gray-850'}`}>
+                      {alert.status}
+                    </span>
+                  </td>
+                  <td className={tdCls}>
+                    {alert.assignedVolunteers && alert.assignedVolunteers.length > 0 ? (
+                      <div className="flex flex-col gap-1">
+                        {alert.assignedVolunteers.map(v => (
+                          <span key={v._id} className="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold rounded">
+                            {v.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">None</span>
+                    )}
+                  </td>
+                  <td className={tdCls}>
+                    <div className="flex gap-2">
+                      {alert.status === 'active' && (
+                        <button
+                          onClick={() => openAssignModal(alert)}
+                          className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-bold transition-colors"
+                        >
+                          Assign Volunteer
+                        </button>
+                      )}
+                      {alert.status === 'active' && (
+                        <button
+                          onClick={() => handleResolve(alert._id)}
+                          className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-bold transition-colors"
+                        >
+                          Mark Resolved
+                        </button>
+                      )}
+                      {alert.status === 'resolved' && (
+                        <span className="text-xs text-gray-400">Resolved</span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Assign Volunteers Modal */}
+      {showAssignModal && selectedAlert && (
+        <div className="fixed inset-0 z-[9000] flex items-center justify-center bg-black/70 px-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-navy dark:text-white mb-1">Assign Volunteers to SOS</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{selectedAlert.address}</p>
+                <p className="text-xs text-gray-400">{new Date(selectedAlert.createdAt).toLocaleString()}</p>
+              </div>
+              <button
+                onClick={() => setShowAssignModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Select Volunteers</label>
+              {volunteersLoading ? (
+                <div className="space-y-2">
+                  {[1,2,3].map(i => (
+                    <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                  ))}
+                </div>
+              ) : volunteers.length === 0 ? (
+                <p className="text-sm text-gray-500">No approved and available volunteers found.</p>
+              ) : (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {volunteers.map(v => (
+                    <label
+                      key={v._id}
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                        selectedVolunteers.includes(v.user?._id)
+                          ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'
+                          : 'bg-gray-50 dark:bg-navy border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedVolunteers.includes(v.user?._id)}
+                        onChange={() => toggleVolunteer(v.user?._id)}
+                        className="w-4 h-4 text-primary rounded focus:ring-primary"
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium text-navy dark:text-white text-sm">{v.user?.name || '—'}</p>
+                        <div className="flex gap-1 mt-1">
+                          {v.skills?.slice(0, 3).map((s, idx) => (
+                            <span key={idx} className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold rounded">
+                        Available
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={handleAssignVolunteers}
+              disabled={selectedVolunteers.length === 0 || assigning}
+              className="w-full mt-4 py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {assigning ? 'Assigning...' : 'Assign Volunteer(s)'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Main Admin Page ───────────────────────────────────────────────
 const Admin = () => {
   const [stats, setStats] = useState(null);
@@ -545,6 +1087,7 @@ const Admin = () => {
     { id: 'incidents',  icon: '🚨', label: 'Incidents' },
     { id: 'users',      icon: '👥', label: 'Users' },
     { id: 'volunteers', icon: '🤝', label: 'Volunteers' },
+    { id: 'sos-alerts', icon: '🆘', label: 'SOS Alerts' },
     { id: 'broadcast',  icon: '📢', label: 'Broadcast' },
     { id: 'export',     icon: '⬇️', label: 'Export' },
   ];
@@ -596,6 +1139,7 @@ const Admin = () => {
           {activeTab === 'incidents' && <IncidentsTab />}
           {activeTab === 'users' && <UsersTab />}
           {activeTab === 'volunteers' && <VolunteersTab />}
+          {activeTab === 'sos-alerts' && <SOSAlertsTab />}
           {activeTab === 'broadcast' && <BroadcastTab />}
           {activeTab === 'export' && <ExportTab />}
         </motion.div>

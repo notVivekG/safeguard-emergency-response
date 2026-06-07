@@ -1,6 +1,6 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { SocketContext } from '../context/SocketContext';
 import api from '../services/api';
@@ -9,17 +9,26 @@ import PageWrapper from '../components/PageWrapper';
 import MapView from '../components/MapView';
 import Toast from '../components/Toast';
 
+// Status badge helper for tasks
+const taskStatusBadge = {
+  assigned: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  'in-progress': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+  completed: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+};
+
 const Dashboard = () => {
-  const { user } = useContext(AuthContext);
+  const { user, setUser } = useContext(AuthContext);
   const { socket } = useContext(SocketContext);
+  const navigate = useNavigate();
+
   const [activeTab, setActiveTab] = useState('reports');
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Volunteer application & profile state
   const [volunteerData, setVolunteerData] = useState(null);
   const [volunteerLoading, setVolunteerLoading] = useState(true);
-  
+
   // Settings Form state
   const [settingsForm, setSettingsForm] = useState({
     availability: true,
@@ -36,6 +45,22 @@ const Dashboard = () => {
   const [nearbyIncidents, setNearbyIncidents] = useState([]);
   const [userLoc, setUserLoc] = useState(null);
   const [geoError, setGeoError] = useState(null);
+
+  // SOS alert banner (for volunteers)
+  const [sosBanner, setSosBanner] = useState(null);
+  const sosBannerTimerRef = useRef(null);
+
+  // SOS assignment banner (for volunteers)
+  const [sosAssignmentBanner, setSosAssignmentBanner] = useState(null);
+  const sosAssignmentBannerTimerRef = useRef(null);
+
+  // Tasks tab state
+  const [tasks, setTasks] = useState([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
 
   useEffect(() => {
     document.title = 'Dashboard — SafeGuard';
@@ -70,20 +95,126 @@ const Dashboard = () => {
     }
   }, [volunteerData]);
 
-  // Real-time socket approval updates
+  // ── Socket event listeners ──────────────────────────────────────
   useEffect(() => {
     if (!socket) return;
+
+    // Volunteer status approval/rejection
     const handleStatusUpdate = ({ status }) => {
       setVolunteerData(prev => prev ? { ...prev, status } : null);
       if (status === 'approved') {
-        setToast({ show: true, message: 'Your volunteer application was approved!', type: 'success' });
+        showToast('Your volunteer application was approved!', 'success');
       } else if (status === 'rejected') {
-        setToast({ show: true, message: 'Your volunteer application was rejected.', type: 'error' });
+        showToast('Your volunteer application was rejected.', 'error');
       }
     };
+
+    // Task 5: Admin role update → live sync
+    const handleRoleUpdated = ({ newRole }) => {
+      if (!newRole) return;
+      setUser(prev => ({ ...prev, role: newRole }));
+      
+      if (newRole === 'user') {
+        // Reset volunteer state when demoted to user
+        setVolunteerData(null);
+        setSettingsForm({
+          availability: true,
+          skills: [],
+          preferredContact: 'email',
+          emergencyContactName: '',
+          emergencyContactPhone: '',
+          bio: ''
+        });
+        setActiveTab('reports');
+        showToast('Your role has been updated. You are no longer a volunteer.', 'success');
+      } else if (newRole === 'volunteer') {
+        // Re-fetch volunteer profile when promoted to volunteer
+        fetchVolunteerProfile();
+        showToast('You have been registered as a volunteer by admin.', 'success');
+      } else {
+        showToast('Your role has been updated by admin.', 'success');
+      }
+    };
+
+    // Handle volunteer deactivation
+    const handleVolunteerDeactivated = () => {
+      setVolunteerData(null);
+      setSettingsForm({
+        availability: true,
+        skills: [],
+        preferredContact: 'email',
+        emergencyContactName: '',
+        emergencyContactPhone: '',
+        bio: ''
+      });
+      setActiveTab('reports');
+      showToast('Your volunteer registration has been removed by admin. You can register again.', 'error');
+    };
+
+    // Handle volunteer approved (for admin-assigned volunteers)
+    const handleVolunteerApproved = () => {
+      fetchVolunteerProfile();
+      showToast('You have been approved as a volunteer by admin.', 'success');
+    };
+
+    // Task 4: SOS alert banner for approved volunteers
+    const handleSosAlert = (payload) => {
+      if (volunteerData?.status !== 'approved') return;
+      setSosBanner(payload);
+      clearTimeout(sosBannerTimerRef.current);
+      sosBannerTimerRef.current = setTimeout(() => setSosBanner(null), 30000);
+    };
+
+    // Handle SOS assignment
+    const handleSosAssigned = (payload) => {
+      if (volunteerData?.status !== 'approved') return;
+      setSosAssignmentBanner(payload);
+      clearTimeout(sosAssignmentBannerTimerRef.current);
+      sosAssignmentBannerTimerRef.current = setTimeout(() => setSosAssignmentBanner(null), 60000);
+      showToast('You have been assigned to an SOS emergency.', 'error');
+    };
+
+    // Task 6: New task assigned
+    const handleTaskAssigned = (task) => {
+      setTasks(prev => [task, ...prev]);
+      showToast(`New task assigned: ${task.title}`, 'success');
+    };
+
+    // Task 6: Task status updated
+    const handleTaskStatusUpdated = ({ taskId, status }) => {
+      setTasks(prev => prev.map(t => t._id === taskId ? { ...t, status } : t));
+    };
+
     socket.on('volunteer:statusUpdated', handleStatusUpdate);
-    return () => socket.off('volunteer:statusUpdated', handleStatusUpdate);
-  }, [socket]);
+    socket.on('user:roleUpdated', handleRoleUpdated);
+    socket.on('volunteer:deactivated', handleVolunteerDeactivated);
+    socket.on('volunteer:approved', handleVolunteerApproved);
+    socket.on('sos:alert', handleSosAlert);
+    socket.on('sos:assigned', handleSosAssigned);
+    socket.on('task:assigned', handleTaskAssigned);
+    socket.on('task:statusUpdated', handleTaskStatusUpdated);
+
+    return () => {
+      socket.off('volunteer:statusUpdated', handleStatusUpdate);
+      socket.off('user:roleUpdated', handleRoleUpdated);
+      socket.off('volunteer:deactivated', handleVolunteerDeactivated);
+      socket.off('volunteer:approved', handleVolunteerApproved);
+      socket.off('sos:alert', handleSosAlert);
+      socket.off('sos:assigned', handleSosAssigned);
+      socket.off('task:assigned', handleTaskAssigned);
+      socket.off('task:statusUpdated', handleTaskStatusUpdated);
+    };
+  }, [socket, volunteerData, setUser]);
+
+  // Cleanup SOS banner timer on unmount
+  useEffect(() => {
+    return () => clearTimeout(sosBannerTimerRef.current);
+  }, []);
+
+  // Cleanup SOS assignment banner timer on unmount
+  useEffect(() => {
+    return () => clearTimeout(sosAssignmentBannerTimerRef.current);
+  }, []);
 
   // Fetch reports when tab opens
   useEffect(() => {
@@ -129,11 +260,22 @@ const Dashboard = () => {
               setNearbyLoading(false);
             });
         },
-        (error) => {
+        () => {
           setGeoError('Geolocation access denied. Please enable location permissions to see nearby incidents.');
           setNearbyLoading(false);
         }
       );
+    }
+  }, [activeTab]);
+
+  // Fetch tasks when tasks tab opens
+  useEffect(() => {
+    if (activeTab === 'tasks') {
+      setTasksLoading(true);
+      api.get('/volunteers/tasks')
+        .then(res => setTasks(res.data || []))
+        .catch(console.error)
+        .finally(() => setTasksLoading(false));
     }
   }, [activeTab]);
 
@@ -142,10 +284,10 @@ const Dashboard = () => {
     try {
       const res = await api.post('/volunteers/register', { skills: [] });
       setVolunteerData(res.data);
-      setToast({ show: true, message: 'Application submitted successfully!', type: 'success' });
+      showToast('Application submitted successfully!', 'success');
     } catch (err) {
       console.error(err);
-      setToast({ show: true, message: err.response?.data?.message || 'Registration failed', type: 'error' });
+      showToast(err.response?.data?.message || 'Registration failed', 'error');
     } finally {
       setVolunteerLoading(false);
     }
@@ -156,7 +298,7 @@ const Dashboard = () => {
       const val = e.target.value;
       const res = await api.put('/volunteers/status', { status: val });
       setVolunteerData(prev => ({ ...prev, activityStatus: res.data.activityStatus }));
-      setToast({ show: true, message: `Status updated to ${val}`, type: 'success' });
+      showToast(`Status updated to ${val}`, 'success');
     } catch (err) {
       console.error(err);
     }
@@ -168,9 +310,9 @@ const Dashboard = () => {
     try {
       const res = await api.patch(`/volunteers/${volunteerData._id}`, settingsForm);
       setVolunteerData(res.data);
-      setToast({ show: true, message: 'Settings saved successfully!', type: 'success' });
+      showToast('Settings saved successfully!', 'success');
     } catch (err) {
-      setToast({ show: true, message: 'Failed to save settings.', type: 'error' });
+      showToast('Failed to save settings.', 'error');
     }
   };
 
@@ -183,12 +325,78 @@ const Dashboard = () => {
     });
   };
 
+  const handleTaskStatusChange = async (taskId, newStatus) => {
+    try {
+      const res = await api.patch(`/volunteers/tasks/${taskId}/status`, { status: newStatus });
+      setTasks(prev => prev.map(t => t._id === taskId ? res.data : t));
+      showToast(`Task marked as ${newStatus.replace('-', ' ')}`, 'success');
+    } catch (err) {
+      showToast('Failed to update task status.', 'error');
+    }
+  };
+
   const availableSkills = ['Fire Rescue', 'Medical Aid', 'Flood Relief', 'Evacuation', 'Search & Rescue', 'Logistics'];
+
+  // Tabs shown depend on role
+  const allTabs = ['reports', 'nearby', 'volunteer', 'tasks', 'settings'];
 
   return (
     <PageWrapper className="mx-auto flex max-w-7xl flex-col gap-8 overflow-x-hidden px-4 py-8 sm:px-6 lg:px-8 md:flex-row">
       {toast.show && (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast({ show: false, message: '', type: 'success' })} />
+      )}
+
+      {/* SOS Banner for approved volunteers */}
+      {sosBanner && (
+        <div className="fixed top-20 left-0 right-0 z-[9000] mx-auto max-w-2xl px-4">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-600 text-white rounded-xl px-5 py-4 shadow-2xl flex items-center justify-between gap-3"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl animate-pulse">🚨</span>
+              <div>
+                <p className="font-extrabold text-sm uppercase tracking-wide">SOS ALERT</p>
+                <p className="text-sm">
+                  <span className="font-bold">{sosBanner.userName}</span>
+                  {sosBanner.address ? ` at ${sosBanner.address}` : ''} needs emergency help!
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => { clearTimeout(sosBannerTimerRef.current); setSosBanner(null); }}
+              className="text-white hover:text-red-200 font-bold text-lg shrink-0"
+              aria-label="Dismiss"
+            >✕</button>
+          </motion.div>
+        </div>
+      )}
+
+      {/* SOS Assignment Banner for approved volunteers */}
+      {sosAssignmentBanner && (
+        <div className="fixed top-36 left-0 right-0 z-[8999] mx-auto max-w-2xl px-4">
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-orange-600 text-white rounded-xl px-5 py-4 shadow-2xl flex items-center justify-between gap-3"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl animate-pulse">📢</span>
+              <div>
+                <p className="font-extrabold text-sm uppercase tracking-wide">SOS ASSIGNMENT</p>
+                <p className="text-sm">
+                  You have been assigned to an SOS emergency at <span className="font-bold">{sosAssignmentBanner.address}</span>. Respond immediately!
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => { clearTimeout(sosAssignmentBannerTimerRef.current); setSosAssignmentBanner(null); }}
+              className="text-white hover:text-orange-200 font-bold text-lg shrink-0"
+              aria-label="Dismiss"
+            >✕</button>
+          </motion.div>
+        </div>
       )}
 
       {/* Sidebar */}
@@ -205,8 +413,8 @@ const Dashboard = () => {
         </div>
 
         <nav className="flex flex-row md:flex-col overflow-x-auto md:overflow-visible gap-2 pb-2 md:pb-0 scrollbar-none whitespace-nowrap">
-          {['reports', 'nearby', 'volunteer', 'settings'].map(tab => (
-            <button 
+          {allTabs.map(tab => (
+            <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`min-h-[44px] shrink-0 rounded-lg px-4 py-3 text-center font-medium transition-colors md:text-left ${
@@ -221,7 +429,7 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <div className="flex-1 bg-white dark:bg-navy-light rounded-xl shadow p-4 md:p-6 min-h-[500px]">
-        
+
         {/* TAB 1: REPORTS */}
         {activeTab === 'reports' && (
           <div>
@@ -316,7 +524,7 @@ const Dashboard = () => {
                 <div className="text-4xl mb-4">🤝</div>
                 <h3 className="font-bold text-lg mb-2 dark:text-white">Become a Volunteer</h3>
                 <p className="text-gray-500 mb-6">Join the response team and help your community during crises.</p>
-                <button 
+                <button
                   onClick={handleRegister}
                   className="min-h-[44px] rounded bg-primary px-6 py-3 font-bold text-white transition-colors hover:bg-primary-dark"
                 >
@@ -348,12 +556,13 @@ const Dashboard = () => {
                     variants={{ hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } }}
                   >
                     <p className="text-sm text-green-800 dark:text-green-400 font-bold mb-1">Current Status</p>
-                    <select 
+                    <select
                       value={volunteerData.activityStatus || 'available'}
                       onChange={handleActivityStatusChange}
                       className="w-full bg-transparent font-bold text-lg outline-none cursor-pointer text-gray-900 dark:text-white h-11"
                     >
                       <option value="available" className="bg-white text-gray-900 dark:bg-navy dark:text-white">Available</option>
+                      <option value="not_available" className="bg-white text-gray-900 dark:bg-navy dark:text-white">Not Available</option>
                       <option value="en-route" className="bg-white text-gray-900 dark:bg-navy dark:text-white">En Route</option>
                       <option value="on-site" className="bg-white text-gray-900 dark:bg-navy dark:text-white">On Site</option>
                     </select>
@@ -364,7 +573,7 @@ const Dashboard = () => {
                   >
                     <p className="text-sm text-blue-800 dark:text-blue-400 font-bold mb-1">Assigned Tasks</p>
                     <p className="font-bold text-2xl text-navy dark:text-white">
-                      {volunteerData.assignedIncidents?.length || 0}
+                      {tasks.filter(t => t.status !== 'completed').length || 0}
                     </p>
                   </motion.div>
                 </div>
@@ -373,7 +582,83 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* TAB 4: SETTINGS */}
+        {/* TAB 4: TASKS */}
+        {activeTab === 'tasks' && (
+          <div>
+            <h2 className="text-2xl font-bold text-navy dark:text-white mb-6">Assigned Tasks</h2>
+            {tasksLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-24 bg-gray-200 dark:bg-gray-700 rounded-xl animate-pulse"></div>
+                ))}
+              </div>
+            ) : tasks.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="text-5xl mb-4">📋</div>
+                <h3 className="text-xl font-bold text-gray-700 dark:text-white mb-2">No Tasks Assigned Yet</h3>
+                <p className="text-gray-500 dark:text-gray-400">Tasks assigned by admin will appear here.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {tasks.map(task => (
+                  <motion.div
+                    key={task._id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-gray-50 dark:bg-navy border border-gray-200 dark:border-gray-700 rounded-xl p-5"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-navy dark:text-white truncate">{task.title}</h3>
+                        {task.incidentId && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            Incident: <span className="font-semibold">{task.incidentId.title}</span>
+                            {task.incidentId.type && ` · ${task.incidentId.type}`}
+                          </p>
+                        )}
+                      </div>
+                      <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${taskStatusBadge[task.status] || ''}`}>
+                        {task.status?.replace('-', ' ')}
+                      </span>
+                    </div>
+                    {task.description && (
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">{task.description}</p>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-gray-400">
+                        Assigned {new Date(task.createdAt).toLocaleDateString()}
+                        {task.assignedBy?.name && ` by ${task.assignedBy.name}`}
+                      </p>
+                      <div className="flex gap-2">
+                        {task.status === 'assigned' && (
+                          <button
+                            onClick={() => handleTaskStatusChange(task._id, 'in-progress')}
+                            className="px-3 py-1.5 text-xs font-bold bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors"
+                          >
+                            Mark In Progress
+                          </button>
+                        )}
+                        {task.status === 'in-progress' && (
+                          <button
+                            onClick={() => handleTaskStatusChange(task._id, 'completed')}
+                            className="px-3 py-1.5 text-xs font-bold bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
+                          >
+                            Mark Completed
+                          </button>
+                        )}
+                        {task.status === 'completed' && (
+                          <span className="text-xs text-green-600 dark:text-green-400 font-bold">✔ Done</span>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 5: SETTINGS */}
         {activeTab === 'settings' && (
           <div>
             <h2 className="text-2xl font-bold text-navy dark:text-white mb-6">Volunteer Settings</h2>
@@ -395,7 +680,7 @@ const Dashboard = () => {
                     <h4 className="font-bold text-navy dark:text-white">Operational Availability</h4>
                     <p className="text-xs text-gray-500">Toggle whether you are available for dispatch</p>
                   </div>
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setSettingsForm(prev => ({ ...prev, availability: !prev.availability }))}
                     className={`w-14 h-8 rounded-full p-1 transition-colors ${settingsForm.availability ? 'bg-safe' : 'bg-gray-300 dark:bg-gray-600'}`}
@@ -416,8 +701,8 @@ const Dashboard = () => {
                           type="button"
                           onClick={() => toggleSkill(skill)}
                           className={`min-h-[40px] px-4 py-2 rounded-full text-xs font-bold transition-all border ${
-                            isSelected 
-                              ? 'bg-primary border-primary text-white shadow' 
+                            isSelected
+                              ? 'bg-primary border-primary text-white shadow'
                               : 'bg-white dark:bg-navy border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50'
                           }`}
                         >

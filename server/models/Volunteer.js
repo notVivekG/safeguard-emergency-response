@@ -10,7 +10,7 @@ const volunteerSchema = new mongoose.Schema({
   },
   activityStatus: {
     type: String,
-    enum: ['available', 'assigned', 'en-route', 'on-site', 'completed'],
+    enum: ['available', 'not_available', 'assigned', 'en-route', 'on-site', 'completed'],
     default: 'available'
   },
   assignedIncidents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Incident' }],

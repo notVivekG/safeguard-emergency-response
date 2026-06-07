@@ -1,4 +1,5 @@
 import Incident from '../models/Incident.js';
+import Task from '../models/Task.js';
 import { sendTopicNotification } from '../services/firebase.js';
 
 export const createIncident = async (req, res) => {
@@ -62,7 +63,21 @@ export const getAllIncidents = async (req, res) => {
     }
 
     const incidents = await queryBuilder;
-    res.json(incidents);
+
+    // FIX 3: Fetch tasks for each incident with populated assignedTo
+    const incidentsWithTasks = await Promise.all(
+      incidents.map(async (incident) => {
+        const tasks = await Task.find({ incidentId: incident._id })
+          .populate('assignedTo', 'name email')
+          .sort({ createdAt: -1 });
+        return {
+          ...incident.toObject(),
+          tasks
+        };
+      })
+    );
+
+    res.json(incidentsWithTasks);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
