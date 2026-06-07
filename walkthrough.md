@@ -60,6 +60,10 @@ This document highlights all major implementations and polish updates completed 
 - **Volunteer Task Status Update (`server/routes/admin.js` & `server/routes/volunteers.js` & `server/controllers/taskController.js` & `client/src/pages/Dashboard.jsx`)**: Moved PATCH /tasks/:id/status route from admin.js to volunteers.js to allow volunteer access. Added ownership check and status transition validation (assigned→in-progress→completed only). Updated Dashboard.jsx to use correct URL /api/v1/volunteers/tasks/:id/status. Backend emits 'task:statusUpdated' to admin_room with volunteer info.
 - **Task Completion Status in Admin Incidents Tab (`client/src/pages/Admin.jsx`)**: Added socket listener for 'task:statusUpdated' in Incidents tab that updates task status in real-time and shows toast when volunteer completes task. Added "Mark Incident Resolved" button that appears when all assigned tasks are completed.
 
+### 11. Additional Bug Fixes (Round 3)
+- **Incidents with Non-Active Status Visibility (`server/controllers/incidentController.js` & `client/src/pages/LiveMap.jsx` & `client/src/components/LiveIncidentFeed.jsx`)**: Removed status filter from getNearbyIncidents in incidentController.js so all incidents are fetched regardless of status. Removed default status='active' filter from LiveMap.jsx filters state. Removed hardcoded status=active query param from LiveIncidentFeed.jsx fetchIncidents function. Incidents now remain visible on LiveMap and LiveFeed regardless of status, with status badges reflecting current state.
+- **Admin SOS Alerts Tab Null Reference Crash (`server/controllers/sosController.js` & `client/src/pages/Admin.jsx`)**: Added null guards in Admin.jsx SOSAlertsTab assignedVolunteers mapping to filter out null/undefined values and use optional chaining for name access. Added null filter in sosController.js getSOSAlerts to filter out nulls from populated assignedVolunteers. Added null filter in assignVolunteersToSOS and verified user exists before emitting socket events. Prevents crashes when volunteer documents have null user references.
+
 ---
 
 ## 📁 Modified Files

@@ -950,13 +950,15 @@ const SOSAlertsTab = () => {
                     </span>
                   </td>
                   <td className={tdCls}>
-                    {alert.assignedVolunteers && alert.assignedVolunteers.length > 0 ? (
+                    {(alert.assignedVolunteers ?? []).length > 0 ? (
                       <div className="flex flex-col gap-1">
-                        {alert.assignedVolunteers.map(v => (
-                          <span key={v._id} className="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold rounded">
-                            {v.name}
-                          </span>
-                        ))}
+                        {alert.assignedVolunteers
+                          .filter(v => v !== null && v !== undefined)
+                          .map(v => (
+                            <span key={v._id} className="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold rounded">
+                              {v?.name ?? v?.user?.name ?? 'Unknown Volunteer'}
+                            </span>
+                          ))}
                       </div>
                     ) : (
                       <span className="text-xs text-gray-400">None</span>

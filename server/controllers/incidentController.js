@@ -137,8 +137,7 @@ export const getNearbyIncidents = async (req, res) => {
           },
           $maxDistance: parseInt(radius)
         }
-      },
-      status: { $in: ['active', 'investigating'] }
+      }
     });
 
     res.json(incidents);

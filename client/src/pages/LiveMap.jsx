@@ -8,7 +8,7 @@ import useGeolocation from '../hooks/useGeolocation';
 import PageWrapper from '../components/PageWrapper';
 
 const LiveMap = () => {
-  const [filters, setFilters] = useState({ status: 'active' });
+  const [filters, setFilters] = useState({});
   const { incidents: fetchedIncidents, loading } = useIncidents(filters);
   const [incidents, setIncidents] = useState([]);
   const [showHeatmap, setShowHeatmap] = useState(false);
@@ -19,7 +19,7 @@ const LiveMap = () => {
 
   useEffect(() => { document.title = 'Live Map — SafeGuard'; }, []);
 
-  const clearFilters = () => setFilters({ status: 'active' });
+  const clearFilters = () => setFilters({});
 
   // Sync fetched incidents into local state so we can update via socket
   useEffect(() => {

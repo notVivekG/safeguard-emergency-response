@@ -47,7 +47,7 @@ const LiveIncidentFeed = ({ incidents: propIncidents, loading: propLoading }) =>
 
   const fetchIncidents = async () => {
     try {
-      const { data } = await api.get('/incidents?status=active');
+      const { data } = await api.get('/incidents');
       setIncidents(data.slice(0, 5)); // show recent 5
     } catch (error) {
       console.error(error);

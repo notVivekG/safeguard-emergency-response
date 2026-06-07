@@ -43,8 +43,16 @@ export const getSOSAlerts = async (req, res) => {
   try {
     const alerts = await SOSAlert.find()
       .sort({ createdAt: -1 })
-      .populate('userId', 'name email phone');
-    res.json(alerts);
+      .populate('userId', 'name email phone')
+      .populate('assignedVolunteers', 'name email');
+    
+    // FIX 2: Filter out nulls from populated fields
+    const filteredAlerts = alerts.map(alert => ({
+      ...alert.toObject(),
+      assignedVolunteers: (alert.assignedVolunteers ?? []).filter(v => v !== null)
+    }));
+    
+    res.json(filteredAlerts);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -86,14 +94,21 @@ export const assignVolunteersToSOS = async (req, res) => {
       .populate('assignedVolunteers', 'name email')
       .populate('userId', 'name email');
 
-    // Emit socket event to each assigned volunteer
+    // FIX 2: Filter out nulls from populated fields
+    populated.assignedVolunteers = (populated.assignedVolunteers ?? []).filter(v => v !== null);
+
+    // FIX 2: Verify user exists before emitting socket event
+    const User = (await import('../models/User.js')).default;
     for (const volunteerId of volunteerIds) {
-      req.io.to(`user_${volunteerId}`).emit('sos:assigned', {
-        sosId: alert._id,
-        address: alert.address,
-        location: alert.location,
-        message: 'You have been assigned to an SOS emergency.'
-      });
+      const userExists = await User.findById(volunteerId);
+      if (userExists) {
+        req.io.to(`user_${volunteerId}`).emit('sos:assigned', {
+          sosId: alert._id,
+          address: alert.address,
+          location: alert.location,
+          message: 'You have been assigned to an SOS emergency.'
+        });
+      }
     }
 
     res.json(populated);
