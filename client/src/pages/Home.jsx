@@ -176,7 +176,7 @@ const Home = () => {
                 <h3 className="text-2xl font-bold mb-2">Need Immediate Help?</h3>
                 <p className="text-primary-100">Tap the SOS button to alert emergency services.</p>
               </div>
-              <div className="z-10 transform scale-75">
+              <div className="z-10 transform scale-75 pointer-events-none opacity-50 cursor-not-allowed">
                 <SOSButton />
               </div>
             </div>
