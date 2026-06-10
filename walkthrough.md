@@ -84,6 +84,28 @@ This document highlights all major implementations and polish updates completed 
 - **Auto-Dismiss (`client/src/pages/Dashboard.jsx`)**: Updated auto-dismiss timeout from 30 seconds to 60 seconds. Timeout callback now calls stopSOSAlarm() before setSosBanner(null) to ensure alarm stops when banner auto-dismisses.
 - **Cleanup on Unmount (`client/src/pages/Dashboard.jsx`)**: Added useEffect cleanup that calls stopSOSAlarm() on component unmount to prevent alarm from continuing when volunteer navigates away from Dashboard.
 
+### 15. Production Deployment Configuration
+- **Environment-Aware CORS (`server/index.js`)**: Replaced hardcoded localhost:5173 origin with dynamic allowedOrigins array that includes localhost:5173 and process.env.CLIENT_URL. Applied corsOptions to both Express app.use(cors(corsOptions)) and Socket.IO server initialization for production compatibility.
+- **Environment-Aware Google OAuth (`server/services/passport.js`)**: Updated callbackURL from hardcoded '/api/v1/auth/google/callback' to process.env.GOOGLE_CALLBACK_URL with fallback to relative path for local development.
+- **Production-Safe Server Configuration (`server/index.js`)**: Confirmed dotenv.config() is at top before imports. Added health check route at root path '/' returning JSON status for Render monitoring. Verified PORT uses process.env.PORT || 5000 and server.listen is called on HTTP server instance (not app) for Socket.IO compatibility.
+- **Environment-Aware API URL (`client/src/services/api.js`)**: Updated baseURL from hardcoded 'http://localhost:5000/api/v1' to import.meta.env.VITE_API_URL with localhost fallback. Added pingServer() function that calls GET / endpoint to wake up Render server on cold start.
+- **Environment-Aware Socket URL (`client/src/services/socket.js`)**: Updated URL from hardcoded 'http://localhost:5000' to import.meta.env.VITE_SOCKET_URL with localhost fallback. Added withCredentials: true and transports: ['websocket', 'polling'] for production reliability.
+- **Render Cold Start Handling (`client/src/main.jsx`)**: Created AppWithPing component with useEffect that calls pingServer() on mount to wake up Render backend when user first visits the site.
+- **Environment Files**: Created client/.env.local (not committed) with local development URLs. Created client/.env.production (committed) with production URLs (VITE_API_URL=https://safeguard-backend-fbit.onrender.com/api/v1, VITE_SOCKET_URL=https://safeguard-backend-fbit.onrender.com).
+- **Vercel SPA Routing (`client/vercel.json`)**: Created vercel.json with rewrite rule to redirect all routes to index.html for React Router compatibility on page refresh and direct URL access.
+- **Git Ignore Updates (`.gitignore`)**: Updated root .gitignore to include node_modules/, .env, .env.local, dist/, and .DS_Store. Ensured client/.env.local is ignored while client/.env.production is committed.
+
+**Production URLs:**
+- Backend (Render): https://safeguard-backend-fbit.onrender.com
+- Frontend (Vercel): https://safeguard-emergency-response.vercel.app
+
+**Redeployment Steps:**
+1. Set environment variables on Render: CLIENT_URL=https://safeguard-emergency-response.vercel.app, GOOGLE_CALLBACK_URL=https://safeguard-backend-fbit.onrender.com/api/v1/auth/google/callback
+2. Deploy backend to Render (already configured with environment variables)
+3. Deploy frontend to Vercel (client/.env.production contains production URLs)
+4. Vercel will automatically use client/.env.production during build
+5. Frontend will ping backend on first visit to wake up from cold start
+
 ---
 
 ## 📁 Modified Files

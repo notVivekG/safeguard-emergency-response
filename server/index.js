@@ -25,12 +25,25 @@ import sosRoutes from './routes/sos.js';
 
 const app = express();
 const httpServer = createServer(app);
+
+const allowedOrigins = [
+  'http://localhost:5173',
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+};
+
 const io = new Server(httpServer, {
-  cors: {
-    origin: 'http://localhost:5173',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true
-  }
+  cors: corsOptions
 });
 
 // Pass IO to req for use in controllers
@@ -42,10 +55,7 @@ app.use((req, res, next) => {
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true
-}));
+app.use(cors(corsOptions));
 app.use(helmet());
 app.use(passport.initialize());
 
@@ -57,6 +67,9 @@ const globalLimiter = rateLimit({
   legacyHeaders: false,
 });
 app.use('/api/v1/auth', globalLimiter);
+
+// Health check route
+app.get('/', (req, res) => res.json({ status: 'SafeGuard API is running' }));
 
 // Routes
 app.use('/api/v1/auth', authRoutes);
