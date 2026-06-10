@@ -1,9 +1,8 @@
 import React from 'react';
 
 const GoogleLoginButton = () => {
-  // Pulls the backend URL dynamically from your environment settings
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
-  const backendUrl = apiUrl.replace('/api/v1', '');
+  // Directly targeting your live Render backend URL, with a fallback for local testing
+  const backendUrl = "https://safeguard-backend-fbit.onrender.com";
 
   return (
     <div className="mt-4">
