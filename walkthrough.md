@@ -90,6 +90,8 @@ This document highlights all major implementations and polish updates completed 
 - **Production-Safe Server Configuration (`server/index.js`)**: Confirmed dotenv.config() is at top before imports. Added health check route at root path '/' returning JSON status for Render monitoring. Verified PORT uses process.env.PORT || 5000 and server.listen is called on HTTP server instance (not app) for Socket.IO compatibility.
 - **Environment-Aware API URL (`client/src/services/api.js`)**: Updated baseURL from hardcoded 'http://localhost:5000/api/v1' to import.meta.env.VITE_API_URL with localhost fallback. Added pingServer() function that calls GET / endpoint to wake up Render server on cold start.
 - **Environment-Aware Socket URL (`client/src/services/socket.js`)**: Updated URL from hardcoded 'http://localhost:5000' to import.meta.env.VITE_SOCKET_URL with localhost fallback. Added withCredentials: true and transports: ['websocket', 'polling'] for production reliability.
+- **Environment-Aware Google Login (`client/src/components/GoogleLoginButton.jsx`)**: Updated from VITE_API_BASE_URL to VITE_API_URL with .replace('/api/v1', '') to extract base URL for Google OAuth redirect.
+- **Environment-Aware OAuth Redirects (`server/routes/auth.js`)**: Fixed hardcoded `http://localhost:5173` in Google OAuth callback failureRedirect and success redirect to use `process.env.CLIENT_URL` with localhost fallback for production compatibility.
 - **Render Cold Start Handling (`client/src/main.jsx`)**: Created AppWithPing component with useEffect that calls pingServer() on mount to wake up Render backend when user first visits the site.
 - **Environment Files**: Created client/.env.local (not committed) with local development URLs. Created client/.env.production (committed) with production URLs (VITE_API_URL=https://safeguard-backend-fbit.onrender.com/api/v1, VITE_SOCKET_URL=https://safeguard-backend-fbit.onrender.com).
 - **Vercel SPA Routing (`client/vercel.json`)**: Created vercel.json with rewrite rule to redirect all routes to index.html for React Router compatibility on page refresh and direct URL access.
@@ -105,6 +107,13 @@ This document highlights all major implementations and polish updates completed 
 3. Deploy frontend to Vercel (client/.env.production contains production URLs)
 4. Vercel will automatically use client/.env.production during build
 5. Frontend will ping backend on first visit to wake up from cold start
+
+### 16. Comprehensive Environment Audit
+- **Frontend Audit Completed**: Scanned all client/src files for hardcoded localhost URLs and ports. Found and fixed GoogleLoginButton.jsx to use VITE_API_URL. All other files (api.js, socket.js, SocketContext.jsx) already using environment variables. SVG xmlns attributes in Login.jsx/Register.jsx are standard XML namespace declarations, not environment-related.
+- **Backend Audit Completed**: Scanned all server/ files for hardcoded fallback values. Found and fixed server/routes/auth.js Google OAuth callback redirects to use process.env.CLIENT_URL. All other services (passport.js, cloudinary.js, firebase.js, huggingface.js) already using environment variables. CORS configuration uses dynamic origins with localhost fallback for local development.
+- **API Keys & Secrets**: Verified no hardcoded API keys, secrets, or sensitive data. All external services (Cloudinary, Firebase, HuggingFace, MongoDB, JWT) use environment variables.
+- **Build Validation**: npm run build completed successfully with 0 errors after all fixes.
+- **Environment Variable Consistency**: All frontend variables use VITE_ prefix. All backend variables use process.env. Fallback values only for local development (localhost:5000, localhost:5173).
 
 ---
 

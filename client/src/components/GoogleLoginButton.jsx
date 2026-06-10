@@ -2,7 +2,8 @@ import React from 'react';
 
 const GoogleLoginButton = () => {
   // Pulls the backend URL dynamically from your environment settings
-  const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+  const backendUrl = apiUrl.replace('/api/v1', '');
 
   return (
     <div className="mt-4">
