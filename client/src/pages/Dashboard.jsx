@@ -59,12 +59,63 @@ const Dashboard = () => {
   const [sosAssignmentBanner, setSosAssignmentBanner] = useState(null);
   const sosAssignmentBannerTimerRef = useRef(null);
 
+  // SOS alarm refs
+  const alarmIntervalRef = useRef(null);
+  const audioCtxRef = useRef(null);
+
   // Tasks tab state
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
+  };
+
+  const startSOSAlarm = () => {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioCtxRef.current = audioCtx;
+
+    const playDoubleBeep = () => {
+      if (!audioCtxRef.current) return;
+      const ctx = audioCtxRef.current;
+      const now = ctx.currentTime;
+
+      // Beep 1
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.type = 'square';
+      osc1.frequency.value = 880;
+      gain1.gain.setValueAtTime(0.3, now);
+      osc1.start(now);
+      osc1.stop(now + 0.15);
+
+      // Beep 2 (after 100ms gap)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.type = 'square';
+      osc2.frequency.value = 880;
+      gain2.gain.setValueAtTime(0.3, now + 0.25);
+      osc2.start(now + 0.25);
+      osc2.stop(now + 0.4);
+    };
+
+    playDoubleBeep();
+    alarmIntervalRef.current = setInterval(playDoubleBeep, 600);
+  };
+
+  const stopSOSAlarm = () => {
+    if (alarmIntervalRef.current) {
+      clearInterval(alarmIntervalRef.current);
+      alarmIntervalRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close();
+      audioCtxRef.current = null;
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -178,10 +229,15 @@ const Dashboard = () => {
 
     // Task 4: SOS alert banner for approved volunteers
     const handleSosAlert = (payload) => {
-      if (volunteerData?.status !== 'approved') return;
-      setSosBanner(payload);
+      if (user?.role !== 'volunteer' || volunteerData?.status !== 'approved') return;
+      const { userName, address, location, timestamp } = payload;
+      startSOSAlarm();
+      setSosBanner({ userName, address, location, timestamp });
       clearTimeout(sosBannerTimerRef.current);
-      sosBannerTimerRef.current = setTimeout(() => setSosBanner(null), 30000);
+      sosBannerTimerRef.current = setTimeout(() => {
+        stopSOSAlarm();
+        setSosBanner(null);
+      }, 60000);
     };
 
     // Handle SOS assignment
@@ -233,6 +289,11 @@ const Dashboard = () => {
   // Cleanup SOS assignment banner timer on unmount
   useEffect(() => {
     return () => clearTimeout(sosAssignmentBannerTimerRef.current);
+  }, []);
+
+  // Cleanup alarm on unmount
+  useEffect(() => {
+    return () => stopSOSAlarm();
   }, []);
 
   // Fetch reports when tab opens
@@ -367,29 +428,35 @@ const Dashboard = () => {
 
       {/* SOS Banner for approved volunteers */}
       {sosBanner && (
-        <div className="fixed top-20 left-0 right-0 z-[9000] mx-auto max-w-2xl px-4">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-red-600 text-white rounded-xl px-5 py-4 shadow-2xl flex items-center justify-between gap-3"
+        <motion.div
+          initial={{ y: 100 }}
+          animate={{ y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="fixed bottom-0 left-0 right-0 md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-lg z-[9999] bg-red-600 text-white shadow-2xl md:rounded-2xl p-6"
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-2xl animate-pulse">🚨</span>
+            <h3 className="text-xl font-black uppercase tracking-wide">EMERGENCY SOS ALERT</h3>
+          </div>
+          <p className="text-lg font-bold mb-4">
+            <span className="font-black">{sosBanner.userName}</span> needs immediate help!
+          </p>
+          <div className="space-y-2 text-sm mb-6">
+            <p>📍 Location: {sosBanner.address || 'Unknown'}</p>
+            <p>🕐 Time: {sosBanner.timestamp ? new Date(sosBanner.timestamp).toLocaleString() : 'Unknown'}</p>
+            <p>🗺 Coordinates: {sosBanner.location?.lat?.toFixed(6) || 'N/A'}, {sosBanner.location?.lng?.toFixed(6) || 'N/A'}</p>
+          </div>
+          <button
+            onClick={() => {
+              stopSOSAlarm();
+              clearTimeout(sosBannerTimerRef.current);
+              setSosBanner(null);
+            }}
+            className="w-full md:w-auto bg-white text-red-600 font-black rounded-xl py-3 px-6 hover:bg-red-50 transition-colors"
           >
-            <div className="flex items-center gap-3">
-              <span className="text-2xl animate-pulse">🚨</span>
-              <div>
-                <p className="font-extrabold text-sm uppercase tracking-wide">SOS ALERT</p>
-                <p className="text-sm">
-                  <span className="font-bold">{sosBanner.userName}</span>
-                  {sosBanner.address ? ` at ${sosBanner.address}` : ''} needs emergency help!
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => { clearTimeout(sosBannerTimerRef.current); setSosBanner(null); }}
-              className="text-white hover:text-red-200 font-bold text-lg shrink-0"
-              aria-label="Dismiss"
-            >✕</button>
-          </motion.div>
-        </div>
+            ✕  STOP ALARM & DISMISS
+          </button>
+        </motion.div>
       )}
 
       {/* SOS Assignment Banner for approved volunteers */}

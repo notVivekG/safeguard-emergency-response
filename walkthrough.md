@@ -76,6 +76,14 @@ This document highlights all major implementations and polish updates completed 
 - **Assigned Volunteer Names Show "---" Until Page Refresh (`client/src/pages/Admin.jsx`)**: Updated handleAssignTask to populate assignedTo with full volunteer objects (with name and email) from the volunteers state before adding to local incidents state. Added robust fallback in volunteer name rendering to handle both object and string formats with fallback chain: volunteer.name ?? volunteer.user.name ?? volunteer.email ?? 'Volunteer'.
 - **Second SOS Button Disabled on Home Page (`client/src/pages/Home.jsx`)**: Added pointer-events-none, opacity-50, and cursor-not-allowed classes to the second SOS button wrapper in the Action Card to make it visually disabled and non-functional while keeping it visible. Main hero SOS button remains fully functional.
 
+### 14. Volunteer SOS Alert with Sound and Banner (Enhancement)
+- **Web Audio API Alarm (`client/src/pages/Dashboard.jsx`)**: Implemented startSOSAlarm() function using Web Audio API with AudioContext, OscillatorNode (880Hz square wave), and GainNode. Creates repeating double-beep pattern (beep 1: 150ms, gap: 100ms, beep 2: 150ms) every 600ms using setInterval. Added stopSOSAlarm() function to clear interval and close AudioContext. Added refs alarmIntervalRef and audioCtxRef for cleanup.
+- **Upgraded SOS Banner UI (`client/src/pages/Dashboard.jsx`)**: Replaced simple top banner with full-screen bottom banner using Framer Motion slide-up animation (y: 100 → y: 0, duration 0.4s). Responsive design: full width at bottom on mobile, centered floating card (max-w-lg) on desktop with md:rounded-2xl. Added detailed content: animated emoji header, user name, location address, formatted timestamp, and GPS coordinates with emoji icons.
+- **Stop Button (`client/src/pages/Dashboard.jsx`)**: Added prominent white button with red text "✕ STOP ALARM & DISMISS" that calls stopSOSAlarm() and setSosBanner(null). Full width on mobile, auto width on desktop with hover:bg-red-50 transition.
+- **Role and Approval Check (`client/src/pages/Dashboard.jsx`)**: Enhanced sos:alert socket handler to check both user.role === 'volunteer' and volunteerData.status === 'approved' before triggering alarm and banner. Only approved volunteers receive SOS alerts.
+- **Auto-Dismiss (`client/src/pages/Dashboard.jsx`)**: Updated auto-dismiss timeout from 30 seconds to 60 seconds. Timeout callback now calls stopSOSAlarm() before setSosBanner(null) to ensure alarm stops when banner auto-dismisses.
+- **Cleanup on Unmount (`client/src/pages/Dashboard.jsx`)**: Added useEffect cleanup that calls stopSOSAlarm() on component unmount to prevent alarm from continuing when volunteer navigates away from Dashboard.
+
 ---
 
 ## 📁 Modified Files
