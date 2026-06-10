@@ -81,6 +81,11 @@ app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/sos', sosRoutes);
 
+// Health check route at /api/v1
+app.get('/api/v1', (req, res) => {
+  res.status(200).json({ message: "SafeGuard Backend API is running successfully!" });
+});
+
 // Error Handling
 app.use(errorHandler);
 
