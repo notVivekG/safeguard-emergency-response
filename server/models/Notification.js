@@ -7,7 +7,11 @@ const notificationSchema = new mongoose.Schema({
   type: { type: String, enum: ['broadcast', 'incident', 'system'], default: 'system' },
   isGlobal: { type: Boolean, default: false },
   read: { type: Boolean, default: false },
-  link: { type: String }
+  link: { type: String },
+  relatedSOS: { type: mongoose.Schema.Types.ObjectId, ref: 'SOSAlert' },
+  relatedMission: { type: mongoose.Schema.Types.ObjectId, ref: 'Mission' },
+  dismissedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  expiresAt: { type: Date }
 }, { timestamps: true });
 
 export default mongoose.model('Notification', notificationSchema);

@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AuthContext } from '../context/AuthContext';
 import { SocketContext } from '../context/SocketContext';
+import api from '../services/api';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -107,15 +108,43 @@ const Navbar = () => {
       }, ...prev]);
     };
 
+    // SOS alert notification for the bell
+    const handleSOSAlert = (data) => {
+      setNotifications(prev => [{
+        id: data._id || Date.now().toString(),
+        type: 'sos',
+        title: '🚨 Emergency SOS',
+        body: `${data.userName || 'Someone'} needs immediate help`,
+        time: new Date().toLocaleTimeString(),
+        read: false,
+        sosId: data._id,
+        createdAt: new Date().toISOString()
+      }, ...prev]);
+    };
+
+    // SOS cleared/resolved — mark notification as read
+    const handleSOSCleared = (data) => {
+      const targetId = data.sosId || data._id;
+      setNotifications(prev => prev.map(n =>
+        n.sosId === targetId ? { ...n, read: true } : n
+      ));
+    };
+
     socket.on('incident:new', handleNewIncident);
     socket.on('broadcast:new', handleBroadcast);
     socket.on('task:assigned', handleTaskAssigned);
     socket.on('sos:assigned', handleSOSAssigned);
+    socket.on('sos:alert', handleSOSAlert);
+    socket.on('sos:cleared', handleSOSCleared);
+    socket.on('sos:resolved', handleSOSCleared);
     return () => {
       socket.off('incident:new', handleNewIncident);
       socket.off('broadcast:new', handleBroadcast);
       socket.off('task:assigned', handleTaskAssigned);
       socket.off('sos:assigned', handleSOSAssigned);
+      socket.off('sos:alert', handleSOSAlert);
+      socket.off('sos:cleared', handleSOSCleared);
+      socket.off('sos:resolved', handleSOSCleared);
     };
   }, [socket]);
 
@@ -237,6 +266,22 @@ const Navbar = () => {
                               <p className="text-xs text-gray-500 mt-1">{notif.body}</p>
                               <p className="text-xs text-gray-400 mt-1">{notif.time}</p>
                             </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Dismiss via API if it has a server ID, then remove locally
+                                if (notif.id && notif.id.length > 10) {
+                                  api.patch(`/notifications/${notif.id}/dismiss`).catch(() => {});
+                                }
+                                setNotifications(prev => prev.filter(n => n.id !== notif.id));
+                              }}
+                              className="text-gray-400 hover:text-red-500 transition-colors shrink-0 mt-0.5"
+                              title="Dismiss"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -271,6 +316,15 @@ const Navbar = () => {
                     >
                       Dashboard
                     </Link>
+                    {(user.role === 'volunteer' || user.role === 'admin') && (
+                      <Link
+                        to="/missions"
+                        onClick={() => setDropdownOpen(false)}
+                        className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        My Missions
+                      </Link>
+                    )}
                     {user.role === 'admin' && (
                       <Link
                         to="/admin"
@@ -336,6 +390,9 @@ const Navbar = () => {
               {user ? (
                 <>
                   <Link to="/dashboard" className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white">Dashboard</Link>
+                  {(user.role === 'volunteer' || user.role === 'admin') && (
+                    <Link to="/missions" className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white">My Missions</Link>
+                  )}
                   {user.role === 'admin' && (
                     <Link to="/admin" className="block px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:bg-gray-700 hover:text-white">Admin Panel</Link>
                   )}

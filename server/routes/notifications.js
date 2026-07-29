@@ -26,4 +26,16 @@ router.delete('/:id', protect, async (req, res) => {
   }
 });
 
+// PATCH dismiss a notification for the current user
+router.patch('/:id/dismiss', protect, async (req, res) => {
+  try {
+    await Notification.findByIdAndUpdate(req.params.id, {
+      $addToSet: { dismissedBy: req.user._id }
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 export default router;

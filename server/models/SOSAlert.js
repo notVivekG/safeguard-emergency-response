@@ -20,7 +20,25 @@ const sosAlertSchema = new mongoose.Schema({
     enum: ['active', 'resolved'],
     default: 'active'
   },
-  assignedVolunteers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }]
+  assignedVolunteers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
+  acceptedBy: [{
+    volunteer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    acceptedAt: { type: Date },
+    status: {
+      type: String,
+      enum: ['assigned', 'accepted', 'travelling', 'reached', 'helping', 'completed'],
+      default: 'assigned'
+    },
+    currentLocation: {
+      lat: Number,
+      lng: Number,
+      updatedAt: Date
+    },
+    eta: String
+  }],
+  clearedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  clearedAt: { type: Date },
+  missionId: { type: String, unique: true, sparse: true }
 }, { timestamps: true });
 
 sosAlertSchema.index({ location: '2dsphere' });

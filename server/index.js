@@ -22,6 +22,7 @@ import adminRoutes from './routes/admin.js';
 import aiRoutes from './routes/ai.js';
 import notificationRoutes from './routes/notifications.js';
 import sosRoutes from './routes/sos.js';
+import missionRoutes from './routes/missions.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -80,6 +81,7 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/sos', sosRoutes);
+app.use('/api/v1/missions', missionRoutes);
 
 // Health check route at /api/v1
 app.get('/api/v1', (req, res) => {

@@ -843,6 +843,8 @@ const SOSAlertsTab = () => {
   const [selectedVolunteers, setSelectedVolunteers] = useState([]);
   const [assigning, setAssigning] = useState(false);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [expandedId, setExpandedId] = useState(null);
 
   useEffect(() => {
     api.get('/sos')
@@ -860,23 +862,68 @@ const SOSAlertsTab = () => {
     const handleSosAlert = (payload) => {
       setAlerts(prev => [payload, ...prev]);
       setHasUnread(true);
-      // Play beep sound
-      try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = ctx.createOscillator();
-        osc.connect(ctx.destination);
-        osc.frequency.value = 880;
-        osc.start();
-        osc.stop(ctx.currentTime + 0.3);
-      } catch (e) {
-        console.error('Audio play failed:', e);
-      }
+    };
+
+    const handleSosCleared = ({ sosId }) => {
+      setAlerts(prev => prev.map(a => a._id === sosId ? { ...a, status: 'resolved' } : a));
+    };
+
+    const handleSosBulkCleared = ({ ids }) => {
+      setAlerts(prev => prev.map(a => ids.includes(a._id) ? { ...a, status: 'resolved' } : a));
+      setSelectedIds([]);
+    };
+
+    const handleSosDeleted = ({ sosId }) => {
+      setAlerts(prev => prev.filter(a => a._id !== sosId));
+      setSelectedIds(prev => prev.filter(id => id !== sosId));
+    };
+
+    const handleVolunteerStatusUpdated = ({ sosId, volunteerId, status, timestamp }) => {
+      setAlerts(prev => prev.map(alert => {
+        if (alert._id === sosId) {
+          return {
+            ...alert,
+            acceptedBy: (alert.acceptedBy || []).map(v =>
+              (v.volunteer?._id || v.volunteer) === volunteerId
+                ? { ...v, status, updatedAt: timestamp }
+                : v
+            )
+          };
+        }
+        return alert;
+      }));
+    };
+
+    const handleLocationUpdated = ({ sosId, volunteerId, location, timestamp }) => {
+      setAlerts(prev => prev.map(alert => {
+        if (alert._id === sosId) {
+          return {
+            ...alert,
+            acceptedBy: (alert.acceptedBy || []).map(v =>
+              (v.volunteer?._id || v.volunteer) === volunteerId
+                ? { ...v, currentLocation: { ...location, updatedAt: timestamp } }
+                : v
+            )
+          };
+        }
+        return alert;
+      }));
     };
 
     socket.on('sos:alert', handleSosAlert);
+    socket.on('sos:cleared', handleSosCleared);
+    socket.on('sos:bulk-cleared', handleSosBulkCleared);
+    socket.on('sos:deleted', handleSosDeleted);
+    socket.on('sos:volunteer-status-updated', handleVolunteerStatusUpdated);
+    socket.on('sos:location-updated', handleLocationUpdated);
 
     return () => {
       socket.off('sos:alert', handleSosAlert);
+      socket.off('sos:cleared', handleSosCleared);
+      socket.off('sos:bulk-cleared', handleSosBulkCleared);
+      socket.off('sos:deleted', handleSosDeleted);
+      socket.off('sos:volunteer-status-updated', handleVolunteerStatusUpdated);
+      socket.off('sos:location-updated', handleLocationUpdated);
     };
   }, [socket]);
 
@@ -889,9 +936,70 @@ const SOSAlertsTab = () => {
     }
   };
 
+  const handleClearSelected = async () => {
+    if (selectedIds.length === 0) return;
+    try {
+      await api.patch(`/sos/${selectedIds[0]}/bulk-clear`, { ids: selectedIds });
+      setAlerts(prev => prev.map(a => selectedIds.includes(a._id) ? { ...a, status: 'resolved' } : a));
+      setSelectedIds([]);
+      setToast({ show: true, message: `${selectedIds.length} SOS alert(s) cleared`, type: 'success' });
+    } catch (e) {
+      setToast({ show: true, message: 'Failed to clear selected alerts', type: 'error' });
+    }
+  };
+
+  const handleMarkResolvedSelected = async () => {
+    for (const id of selectedIds) {
+      await handleResolve(id);
+    }
+    setSelectedIds([]);
+    setToast({ show: true, message: 'Selected alerts marked as resolved', type: 'success' });
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!window.confirm(`Delete ${selectedIds.length} SOS alert(s)? This cannot be undone.`)) return;
+    try {
+      for (const id of selectedIds) {
+        await api.delete(`/sos/${id}`);
+      }
+      setAlerts(prev => prev.filter(a => !selectedIds.includes(a._id)));
+      setSelectedIds([]);
+      setToast({ show: true, message: 'Selected alerts deleted', type: 'success' });
+    } catch (e) {
+      setToast({ show: true, message: 'Failed to delete some alerts', type: 'error' });
+    }
+  };
+
+  const handleClearAll = async () => {
+    const activeIds = alerts.filter(a => a.status === 'active').map(a => a._id);
+    if (activeIds.length === 0) return;
+    try {
+      await api.patch(`/sos/${activeIds[0]}/bulk-clear`, { ids: activeIds });
+      setAlerts(prev => prev.map(a => a.status === 'active' ? { ...a, status: 'resolved' } : a));
+      setSelectedIds([]);
+      setToast({ show: true, message: 'All active SOS alerts cleared', type: 'success' });
+    } catch (e) {
+      setToast({ show: true, message: 'Failed to clear all alerts', type: 'error' });
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === alerts.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(alerts.map(a => a._id));
+    }
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
   const openAssignModal = async (alert) => {
     setSelectedAlert(alert);
-    setSelectedVolunteers(alert.assignedVolunteers?.map(v => v._id) || []);
+    setSelectedVolunteers(alert.assignedVolunteers?.map(v => v._id || v) || []);
     setShowAssignModal(true);
     setVolunteersLoading(true);
     try {
@@ -927,10 +1035,26 @@ const SOSAlertsTab = () => {
     );
   };
 
+  const handleRemoveVolunteer = (alertId, volunteerId) => {
+    // Remove from local state (API can be added for persistence)
+    setAlerts(prev => prev.map(a => {
+      if (a._id === alertId) {
+        return {
+          ...a,
+          assignedVolunteers: (a.assignedVolunteers || []).filter(v => (v._id || v) !== volunteerId),
+          acceptedBy: (a.acceptedBy || []).filter(v => (v.volunteer?._id || v.volunteer) !== volunteerId)
+        };
+      }
+      return a;
+    }));
+  };
+
   const sosStatusColor = {
     active: 'bg-red-100 text-red-800 dark:bg-red-950/20 dark:text-red-400',
     resolved: 'bg-green-100 text-green-800 dark:bg-green-950/20 dark:text-green-400'
   };
+
+  const activeCount = alerts.filter(a => a.status === 'active').length;
 
   return (
     <div>
@@ -938,6 +1062,46 @@ const SOSAlertsTab = () => {
       {toast.show && (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast({ show: false, message: '', type: 'success' })} />
       )}
+
+      {/* Bulk Actions */}
+      {alerts.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
+            <button
+              onClick={handleClearSelected}
+              disabled={selectedIds.length === 0}
+              className="px-3 py-2 text-sm text-gray-700 dark:text-slate-300 hover:text-black dark:hover:text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
+            >
+              Clear Selected ({selectedIds.length})
+            </button>
+            <button
+              onClick={handleMarkResolvedSelected}
+              disabled={selectedIds.length === 0}
+              className="px-3 py-2 text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 disabled:opacity-50 disabled:cursor-not-allowed rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
+            >
+              Mark Resolved
+            </button>
+            <button
+              onClick={handleDeleteSelected}
+              disabled={selectedIds.length === 0}
+              className="px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed rounded-md hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors"
+            >
+              Delete Selected
+            </button>
+          </div>
+          <button
+            onClick={() => {
+              if (window.confirm(`Are you sure? This will clear ${activeCount} active SOS alerts.`)) {
+                handleClearAll();
+              }
+            }}
+            className="px-4 py-2 bg-red-100 dark:bg-red-600/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-600/30 rounded-lg hover:bg-red-200 dark:hover:bg-red-600/30 transition-colors text-sm font-medium"
+          >
+            Clear All ({activeCount})
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map(i => (
@@ -955,61 +1119,158 @@ const SOSAlertsTab = () => {
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-navy">
               <tr>
-                {['Name', 'Address', 'Time', 'Status', 'Assigned Volunteers', 'Action'].map(h => (
+                <th className={thCls}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.length === alerts.length && alerts.length > 0}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 text-primary rounded focus:ring-primary"
+                  />
+                </th>
+                {['Name', 'Address', 'Time', 'Status', 'Volunteers', 'Action'].map(h => (
                   <th key={h} className={thCls}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-navy-light divide-y divide-gray-100 dark:divide-gray-800">
               {alerts.map(alert => (
-                <tr key={alert._id} className="hover:bg-gray-50 dark:hover:bg-navy transition-colors">
-                  <td className={`${tdCls} font-medium`}>{alert.userName || '—'}</td>
-                  <td className={`${tdCls} max-w-[200px] truncate`}>{alert.address || '—'}</td>
-                  <td className={tdCls}>{new Date(alert.createdAt).toLocaleString()}</td>
-                  <td className={tdCls}>
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${sosStatusColor[alert.status] || 'bg-gray-100 text-gray-850'}`}>
-                      {alert.status}
-                    </span>
-                  </td>
-                  <td className={tdCls}>
-                    {(alert.assignedVolunteers ?? []).length > 0 ? (
-                      <div className="flex flex-col gap-1">
-                        {alert.assignedVolunteers
-                          .filter(v => v !== null && v !== undefined)
-                          .map(v => (
-                            <span key={v._id} className="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold rounded">
-                              {v?.name ?? v?.user?.name ?? 'Unknown Volunteer'}
-                            </span>
-                          ))}
+                <React.Fragment key={alert._id}>
+                  <tr
+                    className={`hover:bg-gray-50 dark:hover:bg-navy transition-colors cursor-pointer ${selectedIds.includes(alert._id) ? 'bg-blue-50 dark:bg-blue-900/10' : ''}`}
+                    onClick={() => setExpandedId(expandedId === alert._id ? null : alert._id)}
+                  >
+                    <td className={tdCls} onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(alert._id)}
+                        onChange={() => toggleSelect(alert._id)}
+                        className="w-4 h-4 text-primary rounded focus:ring-primary"
+                      />
+                    </td>
+                    <td className={`${tdCls} font-medium`}>{alert.userName || '—'}</td>
+                    <td className={`${tdCls} max-w-[200px] truncate`}>{alert.address || '—'}</td>
+                    <td className={tdCls}>{new Date(alert.createdAt).toLocaleString()}</td>
+                    <td className={tdCls}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${sosStatusColor[alert.status] || 'bg-gray-100 text-gray-850'}`}>
+                        {alert.status}
+                      </span>
+                    </td>
+                    <td className={tdCls}>
+                      {(alert.assignedVolunteers ?? []).length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {alert.assignedVolunteers
+                            .filter(v => v !== null && v !== undefined)
+                            .map(v => (
+                              <span key={v._id} className="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-xs font-bold rounded">
+                                {v?.name ?? v?.user?.name ?? 'Unknown Volunteer'}
+                              </span>
+                            ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">None</span>
+                      )}
+                    </td>
+                    <td className={tdCls} onClick={e => e.stopPropagation()}>
+                      <div className="flex gap-2">
+                        {alert.status === 'active' && (
+                          <button
+                            onClick={() => openAssignModal(alert)}
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-bold transition-colors"
+                          >
+                            Assign
+                          </button>
+                        )}
+                        {alert.status === 'active' && (
+                          <button
+                            onClick={() => handleResolve(alert._id)}
+                            className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-bold transition-colors"
+                          >
+                            Resolve
+                          </button>
+                        )}
+                        {alert.status === 'resolved' && (
+                          <span className="text-xs text-gray-400">Resolved</span>
+                        )}
                       </div>
-                    ) : (
-                      <span className="text-xs text-gray-400">None</span>
-                    )}
-                  </td>
-                  <td className={tdCls}>
-                    <div className="flex gap-2">
-                      {alert.status === 'active' && (
-                        <button
-                          onClick={() => openAssignModal(alert)}
-                          className="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-bold transition-colors"
-                        >
-                          Assign Volunteer
-                        </button>
-                      )}
-                      {alert.status === 'active' && (
-                        <button
-                          onClick={() => handleResolve(alert._id)}
-                          className="px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-bold transition-colors"
-                        >
-                          Mark Resolved
-                        </button>
-                      )}
-                      {alert.status === 'resolved' && (
-                        <span className="text-xs text-gray-400">Resolved</span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                    </td>
+                  </tr>
+
+                  {/* Expanded volunteer tracking cards */}
+                  {expandedId === alert._id && (alert.acceptedBy?.length > 0 || alert.assignedVolunteers?.length > 0) && (
+                    <tr>
+                      <td colSpan={7} className="bg-gray-50 dark:bg-navy/50 p-4">
+                        <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-3">Assigned Volunteer Tracking</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {(alert.acceptedBy || []).map((vol, idx) => {
+                            const volUser = vol.volunteer || {};
+                            const volName = typeof volUser === 'object' ? volUser.name : null;
+                            return (
+                              <div key={idx} className="bg-white dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl p-4 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 bg-gray-200 dark:bg-slate-700 rounded-full flex items-center justify-center text-xs font-bold text-gray-700 dark:text-white">
+                                      {volName ? volName.split(' ').map(n => n[0]).join('') : '?'}
+                                    </div>
+                                    <div>
+                                      <p className="font-medium text-sm text-gray-900 dark:text-white">{volName || 'Volunteer'}</p>
+                                      <p className="text-xs text-gray-500">{typeof volUser === 'object' ? volUser.phone : ''}</p>
+                                    </div>
+                                  </div>
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold text-white capitalize ${
+                                    vol.status === 'completed' ? 'bg-green-600' :
+                                    vol.status === 'helping' ? 'bg-purple-600' :
+                                    vol.status === 'reached' ? 'bg-emerald-600' :
+                                    vol.status === 'travelling' ? 'bg-amber-600' :
+                                    vol.status === 'accepted' ? 'bg-blue-600' :
+                                    'bg-slate-600'
+                                  }`}>
+                                    {vol.status}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-slate-500 space-y-0.5">
+                                  {vol.acceptedAt && <p>Accepted: {new Date(vol.acceptedAt).toLocaleTimeString()}</p>}
+                                  {vol.currentLocation?.updatedAt && <p>Last location: {new Date(vol.currentLocation.updatedAt).toLocaleTimeString()}</p>}
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => {
+                                      const loc = alert.location;
+                                      const lat = loc?.coordinates?.[1] || loc?.lat;
+                                      const lng = loc?.coordinates?.[0] || loc?.lng;
+                                      if (lat && lng) window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
+                                    }}
+                                    className="flex-1 px-2 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-200 rounded text-xs transition-colors text-center"
+                                  >
+                                    Track SOS
+                                  </button>
+                                  {vol.currentLocation?.lat && (
+                                    <button
+                                      onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${vol.currentLocation.lat},${vol.currentLocation.lng}`, '_blank')}
+                                      className="flex-1 px-2 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-200 rounded text-xs transition-colors text-center"
+                                    >
+                                      Navigate
+                                    </button>
+                                  )}
+                                  {typeof volUser === 'object' && volUser.phone && (
+                                    <a href={`tel:${volUser.phone}`} className="flex-1 px-2 py-1.5 bg-gray-100 dark:bg-slate-700 hover:bg-gray-200 dark:hover:bg-slate-600 text-gray-700 dark:text-slate-200 rounded text-xs transition-colors text-center">
+                                      Call
+                                    </a>
+                                  )}
+                                  <button
+                                    onClick={() => handleRemoveVolunteer(alert._id, volUser._id || vol.volunteer)}
+                                    className="px-2 py-1.5 bg-red-100 dark:bg-red-600/20 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-600/30 rounded text-xs transition-colors"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>

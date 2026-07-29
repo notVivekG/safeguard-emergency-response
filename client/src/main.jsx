@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { SocketProvider } from './context/SocketContext.jsx';
+import { SOSProvider } from './context/SOSContext.jsx';
 import { pingServer } from './services/api';
 import './index.css';
 import 'leaflet/dist/leaflet.css';
@@ -21,7 +22,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <AuthProvider>
         <SocketProvider>
-          <AppWithPing />
+          <SOSProvider>
+            <AppWithPing />
+          </SOSProvider>
         </SocketProvider>
       </AuthProvider>
     </BrowserRouter>
