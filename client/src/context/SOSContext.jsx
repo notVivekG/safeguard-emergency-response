@@ -22,6 +22,11 @@ export const SOSProvider = ({ children }) => {
     if (!socket || !user) return;
 
     const handleSOSAlert = (data) => {
+      // Ignore if this SOS was created by the current user
+      if (data?.userId && String(data.userId) === String(user._id)) return;
+      // Plain users (non-volunteers, non-admins) should not receive responder emergency popups
+      if (user.role === 'user') return;
+
       setActiveSOS(data);
       setSosHistory(prev => [data, ...prev]);
       audioService.startEmergencyAlert();
@@ -29,6 +34,12 @@ export const SOSProvider = ({ children }) => {
     };
 
     const handleSOSAssigned = (data) => {
+      // Ignore if this SOS was created by the current user
+      if (data?.userId && String(data.userId) === String(user._id)) return;
+      // If targeted to a specific volunteer, ignore if it's for someone else (unless admin)
+      if (data?.volunteerId && String(data.volunteerId) !== String(user._id) && user.role !== 'admin') return;
+      if (user.role === 'user') return;
+
       setActiveSOS(data);
       audioService.startEmergencyAlert();
       showSOSNotification(data);

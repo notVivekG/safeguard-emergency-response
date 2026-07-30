@@ -33,34 +33,60 @@ const MyMissions = () => {
   }, []);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !user) return;
+
+    const uIdStr = user._id?.toString();
 
     const handleMissionUpdate = (data) => {
-      setMissions(prev => prev.map(m =>
-        m._id === (data.mission?._id || data.missionId) ? (data.mission || m) : m
-      ));
+      const targetId = (data.mission?._id || data.missionId)?.toString();
+      if (!targetId) return;
+      if (data.mission) {
+        setMissions(prev => {
+          const exists = prev.some(m => m._id?.toString() === targetId);
+          if (exists) {
+            return prev.map(m => m._id?.toString() === targetId ? data.mission : m);
+          }
+          const isAssigned = data.mission.assignedVolunteers?.some(
+            v => (v.volunteer?._id || v.volunteer)?.toString() === uIdStr
+          );
+          if (isAssigned) {
+            return [data.mission, ...prev];
+          }
+          return prev;
+        });
+      } else {
+        fetchMissions();
+      }
     };
 
     const handleMissionCreated = (data) => {
       if (data.mission) {
-        // Check if this user is assigned
         const isAssigned = data.mission.assignedVolunteers?.some(
-          v => (v.volunteer?._id || v.volunteer) === user?._id
+          v => (v.volunteer?._id || v.volunteer)?.toString() === uIdStr
         );
         if (isAssigned) {
-          setMissions(prev => [data.mission, ...prev]);
+          setMissions(prev => {
+            if (prev.some(m => m._id?.toString() === data.mission._id?.toString())) return prev;
+            return [data.mission, ...prev];
+          });
         }
       }
+    };
+
+    const handleSosAssigned = () => {
+      fetchMissions();
     };
 
     socket.on('mission:updated', handleMissionUpdate);
     socket.on('mission:status-changed', handleMissionUpdate);
     socket.on('mission:created', handleMissionCreated);
+    socket.on('sos:assigned', handleSosAssigned);
 
     return () => {
       socket.off('mission:updated', handleMissionUpdate);
       socket.off('mission:status-changed', handleMissionUpdate);
       socket.off('mission:created', handleMissionCreated);
+      socket.off('sos:assigned', handleSosAssigned);
     };
   }, [socket, user]);
 

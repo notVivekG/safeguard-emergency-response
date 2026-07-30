@@ -59,12 +59,9 @@ export const sendSOS = async (req, res) => {
       missionId
     };
 
-    // Emit to ALL connected clients (volunteers, admins, etc.)
-    req.io.emit('sos:alert', payload);
-    // Also target admin room specifically
+    // Emit ONLY to admin_room (never global broadcast to reporting user)
     req.io.to('admin_room').emit('sos:alert', payload);
-    // Emit mission created event
-    req.io.emit('mission:created', { mission });
+    req.io.to('admin_room').emit('mission:created', { mission });
 
     res.status(200).json({ message: 'SOS alert sent successfully', alert });
   } catch (error) {
@@ -77,9 +74,9 @@ export const getSOSAlerts = async (req, res) => {
     const alerts = await SOSAlert.find()
       .sort({ createdAt: -1 })
       .populate('userId', 'name email phone')
-      .populate('assignedVolunteers', 'name email');
+      .populate('assignedVolunteers', 'name email phone')
+      .populate('acceptedBy.volunteer', 'name email phone profilePhoto');
     
-    // FIX 2: Filter out nulls from populated fields
     const filteredAlerts = alerts.map(alert => ({
       ...alert.toObject(),
       assignedVolunteers: (alert.assignedVolunteers ?? []).filter(v => v !== null)
@@ -121,37 +118,113 @@ export const assignVolunteersToSOS = async (req, res) => {
     if (!alert) {
       return res.status(404).json({ message: 'SOS alert not found' });
     }
-    if (!volunteerIds || volunteerIds.length === 0) {
+    if (!volunteerIds || !Array.isArray(volunteerIds) || volunteerIds.length === 0) {
       return res.status(400).json({ message: 'At least one volunteer ID is required' });
     }
 
-    // Add volunteers to assignedVolunteers using $addToSet to avoid duplicates
-    alert.assignedVolunteers = [...new Set([...alert.assignedVolunteers, ...volunteerIds])];
-    await alert.save();
-
-    // Populate assignedVolunteers with name and email before returning
-    const populated = await SOSAlert.findById(alert._id)
-      .populate('assignedVolunteers', 'name email')
-      .populate('userId', 'name email');
-
-    // FIX 2: Filter out nulls from populated fields
-    populated.assignedVolunteers = (populated.assignedVolunteers ?? []).filter(v => v !== null);
-
-    // FIX 2: Verify user exists before emitting socket event
-    const User = (await import('../models/User.js')).default;
-    for (const volunteerId of volunteerIds) {
-      const userExists = await User.findById(volunteerId);
-      if (userExists) {
-        req.io.to(`user_${volunteerId}`).emit('sos:assigned', {
-          sosId: alert._id,
-          address: alert.address,
-          location: alert.location,
-          message: 'You have been assigned to an SOS emergency.'
-        });
-      }
+    // Find or create linked Mission document
+    let mission = await Mission.findOne({ sosAlert: alert._id });
+    if (!mission) {
+      const missionId = alert.missionId || `MISSION-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+      mission = await Mission.create({
+        missionId,
+        sosAlert: alert._id,
+        user: alert.userId,
+        userName: alert.userName,
+        location: alert.location,
+        address: alert.address,
+        status: 'active'
+      });
+      alert.missionId = missionId;
     }
 
-    res.json(populated);
+    const User = (await import('../models/User.js')).default;
+
+    for (const volId of volunteerIds) {
+      const volIdStr = volId.toString();
+
+      // 1. Legacy assignedVolunteers (idempotent)
+      if (!alert.assignedVolunteers.some(id => id && id.toString() === volIdStr)) {
+        alert.assignedVolunteers.push(volId);
+      }
+
+      // 2. acceptedBy array (idempotent)
+      const existingAccepted = alert.acceptedBy.find(
+        v => (v.volunteer?._id || v.volunteer)?.toString() === volIdStr
+      );
+      if (!existingAccepted) {
+        alert.acceptedBy.push({
+          volunteer: volId,
+          acceptedAt: new Date(),
+          status: 'assigned'
+        });
+      }
+
+      // 3. Mission assignedVolunteers (idempotent)
+      const existingMissionVol = mission.assignedVolunteers.find(
+        v => (v.volunteer?._id || v.volunteer)?.toString() === volIdStr
+      );
+      if (!existingMissionVol) {
+        mission.assignedVolunteers.push({
+          volunteer: volId,
+          assignedAt: new Date(),
+          status: 'assigned'
+        });
+      }
+
+      // 4. Create Notification for assigned volunteer
+      await Notification.create({
+        title: '🆘 Emergency SOS Assignment',
+        body: `You have been assigned to an emergency SOS at ${alert.address || 'Location captured'}`,
+        type: 'incident',
+        isGlobal: false,
+        user: volId,
+        relatedSOS: alert._id,
+        relatedMission: mission._id,
+        link: `/missions/${mission.missionId}`
+      });
+
+      // 5. Emit socket events to volunteer's room
+      const payload = {
+        _id: alert._id,
+        sosId: alert._id,
+        userId: alert.userId,
+        userName: alert.userName,
+        location: {
+          lat: alert.location?.coordinates?.[1] || alert.location?.lat,
+          lng: alert.location?.coordinates?.[0] || alert.location?.lng
+        },
+        address: alert.address,
+        timestamp: alert.createdAt,
+        missionId: mission.missionId,
+        volunteerId: volIdStr
+      };
+
+      req.io.to(`user_${volIdStr}`).emit('sos:assigned', payload);
+      req.io.to(`user_${volIdStr}`).emit('sos:alert', payload);
+    }
+
+    await alert.save();
+    await mission.save();
+
+    const populatedMission = await Mission.findById(mission._id)
+      .populate('user', 'name email phone')
+      .populate('assignedVolunteers.volunteer', 'name email phone profilePhoto');
+
+    for (const volId of volunteerIds) {
+      req.io.to(`user_${volId}`).emit('mission:created', { mission: populatedMission });
+      req.io.to(`user_${volId}`).emit('mission:updated', { mission: populatedMission });
+    }
+
+    const populatedAlert = await SOSAlert.findById(alert._id)
+      .populate('userId', 'name email phone')
+      .populate('assignedVolunteers', 'name email phone')
+      .populate('acceptedBy.volunteer', 'name email phone profilePhoto');
+
+    // Notify admin room of updated SOS
+    req.io.to('admin_room').emit('sos:updated', populatedAlert);
+
+    res.json(populatedAlert);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -865,49 +865,62 @@ const SOSAlertsTab = () => {
     };
 
     const handleSosCleared = ({ sosId }) => {
-      setAlerts(prev => prev.map(a => a._id === sosId ? { ...a, status: 'resolved' } : a));
+      setAlerts(prev => prev.map(a => a._id?.toString() === sosId?.toString() ? { ...a, status: 'resolved' } : a));
     };
 
     const handleSosBulkCleared = ({ ids }) => {
-      setAlerts(prev => prev.map(a => ids.includes(a._id) ? { ...a, status: 'resolved' } : a));
+      const idStrs = (ids || []).map(id => id.toString());
+      setAlerts(prev => prev.map(a => idStrs.includes(a._id?.toString()) ? { ...a, status: 'resolved' } : a));
       setSelectedIds([]);
     };
 
     const handleSosDeleted = ({ sosId }) => {
-      setAlerts(prev => prev.filter(a => a._id !== sosId));
-      setSelectedIds(prev => prev.filter(id => id !== sosId));
+      const targetId = sosId?.toString();
+      setAlerts(prev => prev.filter(a => a._id?.toString() !== targetId));
+      setSelectedIds(prev => prev.filter(id => id?.toString() !== targetId));
     };
 
     const handleVolunteerStatusUpdated = ({ sosId, volunteerId, status, timestamp }) => {
+      if (!sosId || !volunteerId) return;
+      const targetSosId = sosId.toString();
+      const targetVolId = volunteerId.toString();
       setAlerts(prev => prev.map(alert => {
-        if (alert._id === sosId) {
-          return {
-            ...alert,
-            acceptedBy: (alert.acceptedBy || []).map(v =>
-              (v.volunteer?._id || v.volunteer) === volunteerId
-                ? { ...v, status, updatedAt: timestamp }
-                : v
-            )
-          };
+        if (alert._id?.toString() === targetSosId) {
+          const updatedAcceptedBy = (alert.acceptedBy || []).map(v => {
+            const volId = (v.volunteer?._id || v.volunteer)?.toString();
+            if (volId === targetVolId) {
+              return { ...v, status, updatedAt: timestamp };
+            }
+            return v;
+          });
+          return { ...alert, acceptedBy: updatedAcceptedBy };
         }
         return alert;
       }));
     };
 
     const handleLocationUpdated = ({ sosId, volunteerId, location, timestamp }) => {
+      if (!sosId || !volunteerId) return;
+      const targetSosId = sosId.toString();
+      const targetVolId = volunteerId.toString();
       setAlerts(prev => prev.map(alert => {
-        if (alert._id === sosId) {
-          return {
-            ...alert,
-            acceptedBy: (alert.acceptedBy || []).map(v =>
-              (v.volunteer?._id || v.volunteer) === volunteerId
-                ? { ...v, currentLocation: { ...location, updatedAt: timestamp } }
-                : v
-            )
-          };
+        if (alert._id?.toString() === targetSosId) {
+          const updatedAcceptedBy = (alert.acceptedBy || []).map(v => {
+            const volId = (v.volunteer?._id || v.volunteer)?.toString();
+            if (volId === targetVolId) {
+              return { ...v, currentLocation: { ...location, updatedAt: timestamp } };
+            }
+            return v;
+          });
+          return { ...alert, acceptedBy: updatedAcceptedBy };
         }
         return alert;
       }));
+    };
+
+    const handleSosUpdated = (updatedAlert) => {
+      if (!updatedAlert?._id) return;
+      setAlerts(prev => prev.map(a => a._id?.toString() === updatedAlert._id.toString() ? updatedAlert : a));
     };
 
     socket.on('sos:alert', handleSosAlert);
@@ -916,6 +929,7 @@ const SOSAlertsTab = () => {
     socket.on('sos:deleted', handleSosDeleted);
     socket.on('sos:volunteer-status-updated', handleVolunteerStatusUpdated);
     socket.on('sos:location-updated', handleLocationUpdated);
+    socket.on('sos:updated', handleSosUpdated);
 
     return () => {
       socket.off('sos:alert', handleSosAlert);
@@ -924,6 +938,7 @@ const SOSAlertsTab = () => {
       socket.off('sos:deleted', handleSosDeleted);
       socket.off('sos:volunteer-status-updated', handleVolunteerStatusUpdated);
       socket.off('sos:location-updated', handleLocationUpdated);
+      socket.off('sos:updated', handleSosUpdated);
     };
   }, [socket]);
 
@@ -999,7 +1014,8 @@ const SOSAlertsTab = () => {
 
   const openAssignModal = async (alert) => {
     setSelectedAlert(alert);
-    setSelectedVolunteers(alert.assignedVolunteers?.map(v => v._id || v) || []);
+    const existingUserIds = (alert.assignedVolunteers || []).map(v => (v._id || v).toString());
+    setSelectedVolunteers(existingUserIds);
     setShowAssignModal(true);
     setVolunteersLoading(true);
     try {
